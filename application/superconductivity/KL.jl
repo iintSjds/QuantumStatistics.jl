@@ -22,7 +22,11 @@ include("grid.jl")
 
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    fdlr = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)
+    if(β<=10000)
+    	  fdlr = DLR.DLRGrid(:acorr, 1000EF, β, 1e-10)
+    else
+	      fdlr = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)	
+    end
     bdlr = DLR.DLRGrid(:corr, 100EF, β, 1e-10) 
     kpanel = KPanel(Nk, kF, maxK, minK)
     kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
@@ -46,8 +50,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     raw_high = Δ_data[:,4]
     Δ0_low  = (reshape(raw_0low,(fdlr.size,length(kgrid.grid))))[1,:]
     Δ0_high  = (reshape(raw_0high,(fdlr.size,length(kgrid.grid))))[1,:]
-    Δ_low  = transpose(reshape(raw_0low,(fdlr.size,length(kgrid.grid))))
-    Δ_high  = transpose(reshape(raw_0high,(fdlr.size,length(kgrid.grid))))
+    Δ_low  = transpose(reshape(raw_low,(fdlr.size,length(kgrid.grid))))
+    Δ_high  = transpose(reshape(raw_high,(fdlr.size,length(kgrid.grid))))
     F_low = calcF(Δ0_low, Δ_low, fdlr, kgrid)
    
     F_ins_low = DLR.tau2dlr(:acorr, F_low, fdlr, axis=2)
