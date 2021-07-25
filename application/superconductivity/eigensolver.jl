@@ -182,16 +182,23 @@ function Separation(delta0, delta, k::CompositeGrid,  fdlr)
     # high0[1:head-1] .+= 1
     # high0[tail+1:length(k.grid)] .+= 1
 
+    mom_width = mom_sep^2*0.5
     for i in 1:fdlr.size
         for (qi,q) in enumerate(k.grid)
             #if qi>=head && qi<tail
-                low[qi,i] = exp(-(q-kF)^2/mom_sep^2) 
-                low0[qi] = exp(-(q-kF)^2/mom_sep^2)
+                #low[qi,i] = exp(-(q-kF)^2/mom_sep^2) 
+                #low0[qi] = exp(-(q-kF)^2/mom_sep^2)
             #else
-                high[qi,i] = 1-exp(-(q-kF)^2/mom_sep^2) 
-                high0[qi] = 1- exp(-(q-kF)^2/mom_sep^2)                
+                #high[qi,i] = 1-exp(-(q-kF)^2/mom_sep^2) 
+                #high0[qi] = 1- exp(-(q-kF)^2/mom_sep^2)                
             #end
-          
+	        low[qi,i] = (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
+                low0[qi] = (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
+            
+                high[qi,i] = 1- (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
+
+                high0[qi] = 1- (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
+
         end
     end
     
@@ -311,8 +318,19 @@ function Implicit_Renorm(Δ, Δ_0 ,kernal, kernal_bare, kgrid, qgrids, fdlr )
         n=n+1
         delta_0_new, delta_new =  calcΔ(F, kernal, kernal_bare, fdlr , kgrid, qgrids)./(-4*π*π)
         #delta_new = real(DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2))        
-        delta_0_low_new, delta_0_high_new, delta_low_new, delta_high_new = Separation(delta_0_new, delta_new, kgrid, fdlr)
-        if(Looptype==0)
+        
+	 if(n%n_change2==0)
+            coeff_F = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
+            coeff_D = DLR.tau2dlr(:acorr, delta_new, fdlr, axis=2)
+            @assert maximum(abs.(coeff_D))<1e16
+            @assert maximum(abs.(coeff_F))<1e16
+        end	
+
+
+
+	delta_0_low_new, delta_0_high_new, delta_low_new, delta_high_new = Separation(delta_0_new, delta_new, kgrid, fdlr)
+       
+	if(Looptype==0)
             accm=accm+1
             d_0_accm = d_0_accm + delta_0_high_new 
             d_accm = d_accm + delta_high_new
@@ -389,6 +407,7 @@ function Implicit_Renorm(Δ, Δ_0 ,kernal, kernal_bare, kgrid, qgrids, fdlr )
     outFileName = rundir*"/flow_$(WID).dat"
     f = open(outFileName, "a")
     @printf(f, "%32.17g\n", lamu)
+    close(f)
     #F=calcF(delta_0, delta, fdlr, kgrid)
     #delta_0_new, delta_new =  calcΔ(F, kernal, kernal_bare, fdlr , kgrid, qgrids)./(-4*π*π)
 
@@ -1036,7 +1055,15 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
-    fdlr = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)
+    outFileName = rundir*"/flow_$(WID).dat"
+    f = open(outFileName, "a")
+    @printf(f, "%.6f\t%.6e\t%d\n", rs, mom_sep, channel)
+    close(f)
+    if(β<=10000)
+    	fdlr = DLR.DLRGrid(:acorr, 1000EF, β, 1e-10)
+    else
+	fdlr = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)	
+    end
     fdlr2 = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)
     bdlr = DLR.DLRGrid(:corr, 100EF, β, 1e-10) 
     ########## non-uniform kgrid #############
@@ -1104,15 +1131,15 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
 
     Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, kgrid, qgrids, fdlr)
-    Δ0_final = Δ0_final_low .+ Δ0_final_high
-    Δ_final = Δ_final_low .+ Δ_final_high
-    Δ0_double = interpolate(Δ0_final, kgrid, kgrid_double.grid)
-    Δ_double = zeros(Float64, (length(kgrid_double.grid), fdlr.size))
-    for τi in 1:fdlr.size
-        Δ_double[:, τi] = interpolate(Δ_final[:, τi], kgrid, kgrid_double.grid)
-    end
-    Δ0_final2_low, Δ0_final2_high, Δ_final2_low,Δ_final2_high, F2, lamu2 = Implicit_Renorm( Δ_double, Δ0_double, kernal2, kernal_bare2, kgrid_double, qgrids_double, fdlr)
-    println("$(lamu2-lamu)")
+    #Δ0_final = Δ0_final_low .+ Δ0_final_high
+    #Δ_final = Δ_final_low .+ Δ_final_high
+    #Δ0_double = interpolate(Δ0_final, kgrid, kgrid_double.grid)
+    #Δ_double = zeros(Float64, (length(kgrid_double.grid), fdlr.size))
+    #for τi in 1:fdlr.size
+    #    Δ_double[:, τi] = interpolate(Δ_final[:, τi], kgrid, kgrid_double.grid)
+    #end
+    #Δ0_final2_low, Δ0_final2_high, Δ_final2_low,Δ_final2_high, F2, lamu2 = Implicit_Renorm( Δ_double, Δ0_double, kernal2, kernal_bare2, kgrid_double, qgrids_double, fdlr)
+    #println("$(lamu2-lamu)")
     #Δ0_final, Δ_final, F = Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr,fdlr2, bdlr)
     #Δ0_final, Δ_final, F = Explicit_Solver(kernal, kernal_bare, kgrid, qgrids, fdlr, bdlr)
     
