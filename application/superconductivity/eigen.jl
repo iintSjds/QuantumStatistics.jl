@@ -3,7 +3,7 @@ using QuantumStatistics
 using LegendrePolynomials
 using Printf
 # using Gaston
-# using Plots
+using Plots
 
 srcdir = "."
 rundir = isempty(ARGS) ? "." : (pwd()*"/"*ARGS[1])
@@ -223,8 +223,8 @@ function checkKLMass( kpanel_bose, int_order)
     k = kF-1e-6
     p = kF
     l_size = 40
-    n = 0
-    diffa, diffe = 8, 38
+    n = 1
+    diffa, diffe = 7, 38
 
 
     #massList = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
@@ -236,7 +236,7 @@ function checkKLMass( kpanel_bose, int_order)
     grid_int = build_int(k, p ,kpanel_bose, int_order)
     sum = zeros(Float64, l_size)
     sum_bare =  zeros(Float64, l_size)
-    pic = plot()
+    pic = plot(xlabel = "ℓ", ylabel = "W_ℓ(k_F,k_F,ω=2πT)")
     for (mi, mass2) in enumerate(massList)
         for (qi, q) in enumerate(grid_int.grid)
             legendre_x = (k^2 + p^2 - q^2)/2/k/p
@@ -257,28 +257,37 @@ function checkKLMass( kpanel_bose, int_order)
             end
         end
         sum = -sum
-#        pic = plot!(l_array[6:end], (l_array.^0 .* (sum .+0* sum_bare))[6:end]  ) #, xlim=(xMin,xMax), ylim=(yMin, yMax))
+
         diffOE = [sum[i-1]+sum[i+1] - 2*sum[i] for i in 2:length(sum)-1][diffa:diffe]
         diffs[mi, :] = diffOE
-#        println(mass2,diffOE)
-#        display(pic)
-        #readline()
-
+        #        println(mass2,diffOE)
+        if mi < 6
+            pic = plot!(l_array[6:end], (l_array.^0 .* (sum .+0* sum_bare))[6:end],label="ϵ=$(mass2)"  ) #, xlim=(xMin,xMax), ylim=(yMin, yMax))
+            #display(pic)
+            readline()
+        end
         sum = 0*sum
         sum_bare = 0 *sum_bare
     end
+    savefig(pic, "kernel_kl.pdf")
     maxidiffs = [massList[findmax(abs.(diffs[:,l]))[2]] for l in 1:diffe-diffa+1 ]
-    pic2 = plot()
+    pic2 = plot(xlabel = "-ln(ϵ)", ylabel = "oscillation amplitude")
     for i in 1:diffe-diffa+1
-        plot!(pic2, -log.(massList), diffs[:, i])
+        if i%5==0
+            plot!(pic2, -log.(massList), diffs[:, i], label = "ℓ=$(l_array[diffa+i-1])")
+        end
+
     end
-    display(pic2)
-    #readline()
+    #display(pic2)
+    savefig(pic2, "oscillation.pdf")
+    readline()
     #maxidiffs = -log.(maxidiffs)
     println(maxidiffs)
-    maxidiffs = maxidiffs .* (l_array[diffa:diffe] .^ 4.0) ./ log.(l_array[diffa:diffe])
-    pic3 = plot(l_array[diffa:diffe], maxidiffs[:])
-    display(pic3)
+    #maxidiffs = maxidiffs .* (l_array[diffa:diffe] .^ 4.0) ./ log.(l_array[diffa:diffe])
+    pic3 = scatter(l_array[diffa:diffe], maxidiffs[:],label="ϵ_ℓ", xlabel = "ℓ", ylabel = "ϵ_ℓ", yaxis=:log10, markershape = :x)
+    plot!(pic3, l_array[diffa:diffe], 5.6*(l_array[diffa:diffe] .^ -4.0) .* log.(l_array[diffa:diffe]),label = "5.6ℓ^-4ln(ℓ)")
+    #display(pic3)
+    savefig(pic3, "kl_escale.pdf")
     readline()
 
     return 1.0
