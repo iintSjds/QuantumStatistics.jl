@@ -63,6 +63,16 @@ function QPanel(Nk, kF, maxK, minK, k)
     return panel
 end
 
+function BoseQPanel(Nk, kF, maxK, minK, k)
+    panel = pGrid(k, kF, maxK, minK, [Nk,Nk,Nk,Nk,Nk]).grid
+
+    # panel = Grid.boseKUL(0.5 * kF, maxK, minK, Nk, 1).grid
+    # panel[1] = 0.0  # the kgrid start with 0.0
+
+    return panel
+end
+
+
 """
 interpolate!(f, k::CompositeGrid, grid)
 
