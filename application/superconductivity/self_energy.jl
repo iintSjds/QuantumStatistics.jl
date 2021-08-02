@@ -14,10 +14,16 @@ end
 include("eigen.jl")
 include("grid.jl")
 
-function G0(k, τ)
+function G0_τ(k, τ)
     ω = k^2 / (2me) - EF
     return Spectral.kernelFermiT(τ, ω, β)
 end
+
+function G0_ω(k, ωn)
+    ω = k^2 / (2me) - EF
+    return Spectral.kernelFermiT(τ, ω, β)
+end
+
 
 function calcΣ(kernal, kernal_bare, fdlr, kgrid, qgrids)
     
@@ -48,16 +54,16 @@ function calcΣ(kernal, kernal_bare, fdlr, kgrid, qgrids)
             
             for (τi, τ) in enumerate(fdlr.τ)
 
-                FF = G0(q, τ)
+                FF = G0_τ(q, τ)
                 wq = qgrids[ki].wgrid[qi]
                 #Δ[ki, τi] += dH1(k, q, τ) * FF * wq
-                Σ[ki, τi] += kernal[ki ,qi ,τi] * FF * wq
+                Σ[ki, τi] += kernal[ki ,qi ,τi] * FF * wq /k * q
                 @assert isfinite(Σ[ki, τi]) "fail Δ at $ki, $τi with $(Δ[ki, τi]), $FF\n $q for $fx\n $x \n $w\n $q < $(kgrid.panel[kpidx + 1])"
 
                 if τi == 1
-                    FF = G0(q, EPS)
+                    FF = G0_τ(q, -EPS)
                     #Δ0[ki] += bare(k, q) * FF * wq
-                    Σ0[ki] += kernal_bare[ki, qi] * FF * wq                    
+                    Σ0[ki] += kernal_bare[ki, qi] * FF * wq /k * q
                     @assert isfinite(Σ0[ki]) "fail Δ0 at $ki with $(Δ0[ki])"
                 end
 
@@ -71,6 +77,7 @@ end
 
 function main(istest=false)
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
+    println(G0_τ(1.0, EPS), "\t", G0_τ(1.0, -EPS))
     if(β<=10000)
     	  fdlr = DLR.DLRGrid(:fermi, 1000EF, β, 1e-10)
     else
@@ -96,16 +103,33 @@ function main(istest=false)
 
     Σ0, Σ = calcΣ(kernal, kernal_bare, fdlr, kgrid, qgrids)
 
-
-    ΣR = real(DLR.tau2matfreq(:fermi, Σ, fdlr, fdlr.n, axis=2))
-    ΣI = imag(DLR.tau2matfreq(:fermi, Σ, fdlr, fdlr.n, axis=2))
+    Σ_freq = DLR.tau2matfreq(:fermi, Σ, fdlr, fdlr.n, axis=2)
+    ΣR = real(Σ_freq)
+    ΣI = imag(Σ_freq)
 
     Σ_shift = ΣR[kF_label,ω0_label]+Σ0[kF_label]
 
     if istest
+        n1, n2 = 31, 30
         println(fdlr.n)
         println(ΣR[kF_label,:].+Σ0[kF_label].-Σ_shift)
         println(ΣI[kF_label,:])
+        println(Σ[kF_label,:])
+
+        pic1 = plot(fdlr.n[n1:end-n2], ΣR[kF_label,n1:end-n2].+Σ0[kF_label].-Σ_shift)
+        plot!(pic1,fdlr.n[n1:end-n2], ΣI[kF_label,n1:end-n2])
+        display(pic1)
+        #savefig(pic1, "kl_escale.pdf")
+        readline()
+
+        pic2 = plot(fdlr.τ, Σ[kF_label,:])
+        display(pic2)
+        readline()
+
+        pic3 = plot(kgrid.grid, Σ0)
+        display(pic3)
+        readline()
+
     end
 
 
@@ -121,6 +145,6 @@ function main(istest=false)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main(true)
+    main(false)
 end
 
