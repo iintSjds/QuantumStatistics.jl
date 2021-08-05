@@ -14,6 +14,103 @@ end
 include("eigen.jl")
 include("grid.jl")
 
+function KO_sigma(q, n)
+    g = e0^2
+    kernal = 0.0
+    G_s=A1*q^2/(1.0+B1*q^2)+A2*q^2/(1.0+B2*q^2);
+    G_a=A1*q^2/(1.0+B1*q^2)-A2*q^2/(1.0+B2*q^2);
+    spin_factor=3.0
+    if abs(q) > EPS 
+        x = q/2/kF
+        ω_n = 2*π*n/β
+        y = me*ω_n/q/kF
+        
+        
+        if n == 0
+            if abs(q - 2*kF) > EPS
+                Π = me*kF/2/π^2*(1 + (1 -x^2)*log1p(4*x/((1-x)^2))/4/x)
+            else
+                Π = me*kF/2/π^2
+            end
+            kernal = - Π*(1-G_s)^2/( q^2/4/π/g  + Π*(1-G_s))-spin_factor*Π*(-G_a)^2/(q^2/4/π/g + Π*(-G_a))
+        else
+            if abs(q - 2*kF) > EPS
+                theta = atan( 2*y/(y^2+x^2-1) )
+                if theta < 0
+                    theta = theta + π
+                end
+                @assert theta >= 0 && theta<= π
+                Π = me*kF/2/π^2*(1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)                       
+            else
+                theta = atan( 2/y )
+                if theta < 0
+                    theta = theta + π
+                end
+                @assert theta >= 0 && theta<= π
+                Π = me*kF/2/π^2*(1 + y^2*log1p(4/y^2)/4 - y*theta)                       
+            end
+            Π0 = Π / q^2
+            #kernal = - Π0/( 1.0/4/π/g  + Π0 )
+            kernal = - Π0*(1-G_s)^2/( 1.0/4/π/g  + Π0*(1-G_s))-spin_factor*Π0*(-G_a)^2/(1.0/4/π/g + Π0*(-G_a))
+            #kernal = - Π/( (q^2+mass2)/4/π/g  + Π )
+
+        end
+       
+        #kernal = Π
+    else
+        kernal = 0
+        
+    end
+
+    return kernal
+end
+
+
+function Composite_int_sigma(k, p, n, grid_int)
+    sum = 0
+    sum_bare = 0
+    g = e0^2
+
+    if interaction_type==:rpa
+        W_DYNAMIC=RPA
+    elseif interaction_type==:ko
+        W_DYNAMIC=KO_sigma
+    end
+
+    for (qi, q) in enumerate(grid_int.grid)
+        legendre_x = (k^2 + p^2 - q^2)/2/k/p
+        if(abs(abs(legendre_x)-1)<1e-12)
+            legendre_x = sign(legendre_x)*1
+        end
+        wq = grid_int.wgrid[qi]
+        sum += Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC(q, n) * wq
+        sum_bare += Pl(legendre_x, channel)*4*π*g/q * wq
+    end
+    return sum_bare, sum
+end
+
+function legendre_dc_sigma(bdlr, kgrid, qgrids, kpanel_bose, int_order)
+    kernal_bare = zeros(Float64, (length(kgrid.grid), length(qgrids[1].grid)))
+    kernal = zeros(Float64, (length(kgrid.grid), length(qgrids[1].grid), bdlr.size))
+    for (ki, k) in enumerate(kgrid.grid)
+        for (pi, p) in enumerate(qgrids[ki].grid)
+            for (ni, n) in enumerate(bdlr.n)
+                if abs(k - p) > EPS
+                    grid_int = build_int(k, p ,kpanel_bose, int_order)
+                    kernal_bare[ki,pi], kernal[ki,pi,ni] = Composite_int_sigma(k, p, n, grid_int)
+                    @assert isfinite(kernal[ki,pi,ni]) "fail kernal at $ki,$pi,$ni, with $(kernal[ki,pi,ni])"
+                else
+                    kernal_bare[ki,pi] = 0
+                    kernal[ki,pi,ni] = 0
+                end
+            end
+        end
+    end
+    
+    return kernal_bare,  kernal
+end
+
+
 function G0_τ(k, τ)
     ω = k^2 / (2me) - EF
     return Spectral.kernelFermiT(τ, ω, β)
@@ -166,7 +263,7 @@ function main_G0W0(istest=false)
     println("kgrid number: $(length(kgrid.grid))")
     println("max qgrid number: ", maximum([length(q.grid) for q in qgrids]))
 
-    kernal_bare, kernal_freq = legendre_dc(bdlr, kgrid, qgrids, kpanel_bose, order_int)
+    kernal_bare, kernal_freq = legendre_dc_sigma(bdlr, kgrid, qgrids, kpanel_bose, order_int)
     kernal = real(DLR.matfreq2tau(:corr, kernal_freq, bdlr, fdlr.τ, axis=3))
     println(typeof(kernal))
 
@@ -235,7 +332,7 @@ function main_GW0(istest=false)
     println("kgrid number: $(length(kgrid.grid))")
     println("max qgrid number: ", maximum([length(q.grid) for q in qgrids]))
 
-    kernal_bare, kernal_freq = legendre_dc(bdlr, kgrid, qgrids, kpanel_bose, order_int)
+    kernal_bare, kernal_freq = legendre_dc_sigma(bdlr, kgrid, qgrids, kpanel_bose, order_int)
     kernal = real(DLR.matfreq2tau(:corr, kernal_freq, bdlr, fdlr.τ, axis=3))
     println(typeof(kernal))
 
@@ -294,6 +391,11 @@ end
 
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main_GW0(true)
+    if sigma_type == :gw0
+        main_GW0(true)
+    elseif sigma_type == :g0w0
+        main_G0W0(true)
+    end
+
 end
 

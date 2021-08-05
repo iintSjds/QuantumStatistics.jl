@@ -531,6 +531,7 @@ function KO(q, n)
     elseif(channel%2==1)
         spin_factor=1.0
     end
+
     if abs(q) > EPS 
         x = q/2/kF
         ω_n = 2*π*n/β
