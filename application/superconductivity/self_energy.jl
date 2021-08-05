@@ -343,6 +343,7 @@ function main_GW0(istest=false)
     Σ_shift = ΣR[kF_label,ω0_label]+real(Σ0)[kF_label]
     ΣR = broadcast(+, real(Σ0) .- Σ_shift, ΣR)
     ΣI = broadcast(+, imag(Σ0), ΣI)
+    Σ_shift_old = Σ_shift
     for i in 1:100
         Gt = G_τ(ΣR, ΣI, fdlr, kgrid)
         Σ0, Σ = calcΣ(Gt, kernal, kernal_bare, fdlr, kgrid, qgrids)
@@ -353,6 +354,10 @@ function main_GW0(istest=false)
         ΣR = broadcast(+, real(Σ0) .- Σ_shift, ΣR)
         ΣI = broadcast(+, imag(Σ0), ΣI)
         println(Σ_shift)
+        if abs((Σ_shift-Σ_shift_old)/Σ_shift)<1e-10
+            break
+        end
+        Σ_shift_old = Σ_shift
     end
 
     if istest
