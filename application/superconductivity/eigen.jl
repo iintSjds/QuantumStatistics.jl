@@ -1,5 +1,7 @@
 using StaticArrays:similar, maximum
-using QuantumStatistics
+#using QuantumStatistics
+using QuantumStatistics: Grid, FastMath, Utility
+using Lehmann
 using LegendrePolynomials
 using Printf
 # using Gaston
