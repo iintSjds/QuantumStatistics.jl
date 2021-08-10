@@ -1,5 +1,6 @@
 using StaticArrays:similar, maximum
-using QuantumStatistics
+using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint, DLR, Spectral
+import Lehmann
 using LegendrePolynomials
 using Printf
 # using Gaston
@@ -223,12 +224,12 @@ function checkKLMass( kpanel_bose, int_order)
     k = kF-1e-6
     p = kF
     l_size = 40
-    n = 1
+    n = 0
     diffa, diffe = 7, 38
 
 
     #massList = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
-    massList = [ 0.5*0.5^(i/8.0) for i in 1:160]
+    massList = [ 0.001*0.5^(i/2.0) for i in 1:160]
     diffs = zeros(Float64, (length(massList), diffe-diffa+1))
 
 
@@ -273,7 +274,7 @@ function checkKLMass( kpanel_bose, int_order)
     maxidiffs = [massList[findmax(abs.(diffs[:,l]))[2]] for l in 1:diffe-diffa+1 ]
     pic2 = plot(xlabel = "-ln(ϵ)", ylabel = "oscillation amplitude")
     for i in 1:diffe-diffa+1
-        if i%5==0
+        if i%5==0 && i>10
             plot!(pic2, -log.(massList), diffs[:, i], label = "ℓ=$(l_array[diffa+i-1])")
         end
 
@@ -283,9 +284,9 @@ function checkKLMass( kpanel_bose, int_order)
     readline()
     #maxidiffs = -log.(maxidiffs)
     println(maxidiffs)
-    #maxidiffs = maxidiffs .* (l_array[diffa:diffe] .^ 4.0) ./ log.(l_array[diffa:diffe])
-    pic3 = scatter(l_array[diffa:diffe], maxidiffs[:],label="ϵ_ℓ", xlabel = "ℓ", ylabel = "ϵ_ℓ", yaxis=:log10, markershape = :x)
-    plot!(pic3, l_array[diffa:diffe], 5.6*(l_array[diffa:diffe] .^ -4.0) .* log.(l_array[diffa:diffe]),label = "5.6ℓ^-4ln(ℓ)")
+    maxidiffs = maxidiffs .* (l_array[diffa:diffe] .^ 4.0) ./ log.(l_array[diffa:diffe])
+    pic3 = scatter(l_array[diffa:diffe], maxidiffs[:],label="ϵ_ℓ", xlabel = "ℓ", ylabel = "ϵ_ℓ")#, yaxis=:log10, markershape = :x)
+    #plot!(pic3, l_array[diffa:diffe], 5.6*(l_array[diffa:diffe] .^ -4.0) .* log.(l_array[diffa:diffe]),label = "5.6ℓ^-4ln(ℓ)")
     #display(pic3)
     savefig(pic3, "kl_escale.pdf")
     readline()
@@ -307,6 +308,37 @@ calculate the F function in τ-k representation
 - kgrid: momentum grid
 - fdlr::DLRGrid: DLR Grid that contains the imaginary-time grid
 """
+
+function L_calcF(Δ0, Δ, fdlr, k::CompositeGrid)
+    Δ = Lehmann.DLR.tau2matfreq(:acorr, Δ, fdlr, fdlr.n, axis=2)
+    #F = zeros(ComplexF64, (length(k.grid), fdlr.size))
+    F = zeros(ComplexF64, (length(k.grid), fdlr.size))
+    for (ki, k) in enumerate(k.grid)
+        ω = k^2 / (2me) - EF
+        for (ni, n) in enumerate(fdlr.n)
+            np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
+            nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
+            F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Lehmann.Spectral.kernelFermiΩ(nn, ω, β) * Lehmann.Spectral.kernelFermiΩ(np, ω, β)
+            #F[ki, ni] = (Δ[ki, ni]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+           
+        end
+
+    end
+    
+    #println("F_imag=$(maximum(imag(F)))")
+    F = Lehmann.DLR.matfreq2tau(:acorr, F, fdlr, fdlr.τ, axis=2)
+    #gg_test = real(DLR.matfreq2tau(:acorr, gg_freq, fdlr, fdlr.τ, axis=2))
+    # gg_τ = GG_τ(kgrid, fdlr.τ)
+    # #println("max gg err:$(maximum(abs.(gg_test.-gg_τ)))")
+    # for (ki, k) in enumerate(k.grid)
+    #     for (ni, n) in enumerate(fdlr.τ)
+    #         F[ki, ni] = F[ki, ni] + Δ0[ki] * gg_τ[ki, ni]
+    #     end
+    # end
+   
+    return  real(F)
+end
+
 function calcF(Δ0, Δ, fdlr, k::CompositeGrid)
     Δ = DLR.tau2matfreq(:acorr, Δ, fdlr, fdlr.n, axis=2)
     #F = zeros(ComplexF64, (length(k.grid), fdlr.size))
@@ -417,6 +449,58 @@ function dH1_tau(kgrid, qgrids, fdlr)
     return kernal
 end
 
+
+function Π_gen(q, n)
+    g = e0^2
+    kernal = 0.0
+    Π = 0.0
+    Π_r= 0.0
+    # if abs(q) > EPS 
+    #x = q/2/kF
+    ω_n = 2*π*n/β
+    #     y = me*ω_n/q/kF
+        
+        
+    #     if n == 0
+    #         if abs(q - 2*kF) > EPS
+    #             Π = me*kF/2/π^2*(1 + (1 -x^2)*log1p(4*x/((1-x)^2))/4/x)
+    #         else
+    #             Π = me*kF/2/π^2
+    #         end
+    #         kernal = Π                 
+    #     else
+    #         if abs(q - 2*kF) > EPS
+    #             theta = atan( 2*y/(y^2+x^2-1) )
+    #             if theta < 0
+    #                 theta = theta + π
+    #             end
+    #             @assert theta >= 0 && theta<= π
+    #             Π = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)
+    #         else
+    #             theta = atan( 2/y )
+    #             if theta < 0
+    #                 theta = theta + π
+    #             end
+    #             @assert theta >= 0 && theta<= π
+    #             Π = me*kF/2/π^2*(1 + y^2*log1p(4/(y^2))/4 - y*theta)
+    #         end
+    #         kernal = Π                  
+          
+    #         #kernal = - Π/( (q^2+mass2)/4/π/g  + Π )
+
+    #     end
+       
+    #     #kernal = Π
+    # else
+    #     kernal = 0
+        
+    # end
+    #kernal = - 2.0/( 3.0*π/4/g*ω_n^2  + 2.0 )
+    kernal = - 2.0/( 3.0*π/4/g*ω_n^2  + 2.0 )    
+    #kernal = - 1.0/( ω_n^2  + 1.0 )
+    return kernal
+end
+
 function RPA(q, n)
     g = e0^2
     kernal = 0.0
@@ -437,12 +521,17 @@ function RPA(q, n)
             kernal = - Π/( q^2/4/π/g  + Π )                 
         else
             if abs(q - 2*kF) > EPS
-                theta = atan( 2*y/(y^2+x^2-1) )
-                if theta < 0
-                    theta = theta + π
+               
+                if y^2 < 1e-4/EPS                    
+                    theta = atan( 2*y/(y^2+x^2-1) )
+                    if theta < 0
+                        theta = theta + π
+                    end
+                    @assert theta >= 0 && theta<= π
+                    Π = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)
+                else
+                    Π = me*kF/2/π^2 * (2.0/3.0/y^2  - 2.0/5.0/y^4) #+ (6.0 - 14.0*(ω_n/4.0)^2)/21.0/y^6)
                 end
-                @assert theta >= 0 && theta<= π
-                Π = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)
             else
                 theta = atan( 2/y )
                 if theta < 0
@@ -451,9 +540,13 @@ function RPA(q, n)
                 @assert theta >= 0 && theta<= π
                 Π = me*kF/2/π^2*(1 + y^2*log1p(4/(y^2))/4 - y*theta)
             end
+            #if( y^2 < 1e-6/EPS)
             Π0 = Π / q^2
-            kernal = - Π0/( 1.0/4/π/g  + Π0 )                 
-          
+            kernal = - Π0/( 1.0/4/π/g  + Π0 )
+            #else
+            #    kernal = - 2.0/( 3.0*π/4/g*ω_n^2  + 2.0 )
+            #end
+                           
             #kernal = - Π/( (q^2+mass2)/4/π/g  + Π )
 
         end
@@ -689,9 +782,9 @@ function calcΔ(F,  kernal, kernal_bare, fdlr, kgrid, qgrids)
     F_ins = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
     F_ins = DLR.dlr2tau(:acorr, F_ins, fdlr, [1.0e-12,] , axis=2)[:,1]
 
-    # F_ins2 = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
-    # F_ins2 = DLR.dlr2tau(:acorr, F_ins2, fdlr, [β-1.0e-12,] , axis=2)[:,1]
-    # println("F_ins[0] = $((F_ins[1])), F_ins[β]=$((F_ins2[1])) ")
+    F_ins2 = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
+    F_ins2 = DLR.dlr2tau(:acorr, F_ins2, fdlr, [β-1.0e-12,] , axis=2)[:,1]
+    println("F_ins[0] = $((F_ins[1])), F_ins[β]=$((F_ins2[1])) ")
     for (ki, k) in enumerate(kgrid.grid)
         
         kpidx = 1 # panel index of the kgrid
@@ -738,6 +831,63 @@ function calcΔ(F,  kernal, kernal_bare, fdlr, kgrid, qgrids)
     return Δ0, Δ 
 end
 
+function L_calcΔ(F,  kernal, kernal_bare, fdlr, kgrid, qgrids)
+    
+    Δ0 = zeros(Float64, length(kgrid.grid))
+    Δ = zeros(Float64, (length(kgrid.grid), fdlr.size))
+    order = kgrid.order
+
+    F_ins = Lehmann.DLR.tau2dlr(:acorr, F, fdlr, axis=2)
+    F_ins = Lehmann.DLR.dlr2tau(:acorr, F_ins, fdlr, [1.0e-12,] , axis=2)[:,1]
+
+    F_ins2 = Lehmann.DLR.tau2dlr(:acorr, F, fdlr, axis=2)
+    F_ins2 = Lehmann.DLR.dlr2tau(:acorr, F_ins2, fdlr, [β-1.0e-12,] , axis=2)[:,1]
+    println("L: F_ins[0] = $((F_ins[1])), F_ins[β]=$((F_ins2[1])) ")
+    for (ki, k) in enumerate(kgrid.grid)
+        
+        kpidx = 1 # panel index of the kgrid
+        head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+        x = @view kgrid.grid[head:tail]
+        w = @view kgrid.wgrid[head:tail]
+
+        for (qi, q) in enumerate(qgrids[ki].grid)
+            
+            if q > kgrid.panel[kpidx + 1]
+                # if q is larger than the end of the current panel, move k panel to the next panel
+                while q > kgrid.panel[kpidx + 1]
+                    kpidx += 1
+                end
+                head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+                x = @view kgrid.grid[head:tail]
+                w = @view kgrid.wgrid[head:tail]
+                @assert kpidx <= kgrid.Np
+            end
+
+            
+            for (τi, τ) in enumerate(fdlr.τ)
+
+                fx = @view F[head:tail, τi] # all F in the same kpidx-th K panel
+                FF = barycheb(order, q, fx, w, x) # the interpolation is independent with the panel length
+
+                wq = qgrids[ki].wgrid[qi]
+                #Δ[ki, τi] += dH1(k, q, τ) * FF * wq
+                Δ[ki, τi] += kernal[ki ,qi ,τi] * FF * wq
+                @assert isfinite(Δ[ki, τi]) "fail Δ at $ki, $τi with $(Δ[ki, τi]), $FF\n $q for $fx\n $x \n $w\n $q < $(kgrid.panel[kpidx + 1])"
+
+                if τi == 1
+                    fx_ins = @view F_ins[head:tail] # all F in the same kpidx-th K panel
+                    FF = barycheb(order, q, fx_ins, w, x) # the interpolation is independent with the panel length
+                    #Δ0[ki] += bare(k, q) * FF * wq
+                    Δ0[ki] += kernal_bare[ki, qi] * FF * wq                    
+                    @assert isfinite(Δ0[ki]) "fail Δ0 at $ki with $(Δ0[ki])"
+                end
+
+            end
+        end
+    end
+    
+    return Δ0, Δ 
+end
 
 
 
@@ -865,7 +1015,10 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     
     fdlr = DLR.DLRGrid(:acorr, 10EF, β, 1e-10) 
-    bdlr = DLR.DLRGrid(:corr, 10EF, β, 1e-10) 
+    bdlr = DLR.DLRGrid(:corr, 10EF, β, 1e-10)
+    L_bdlr =  Lehmann.DLR.DLRGrid(:corr, 100EF, β, 1e-10)
+    println(bdlr.τ)
+    println(L_bdlr.τ)
     ########## non-uniform kgrid #############
     # Nk = 16
     # order = 8
@@ -878,31 +1031,63 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #kgrid_bose = CompositeGrid(kpanel_bose, order, :gaussian)
     qgrids = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), order, :gaussian) for k in kgrid.grid] # qgrid for each k in kgrid.grid
     const kF_label = searchsortedfirst(kgrid.grid, kF)
+    q_test = 1e-5
+    n_interp = [i for i in 0:1000]
+    #kernal_freq = [Π_gen(q_test,n) for n in bdlr.n]
+    #L_kernal_freq = [Π_gen(q_test,n) for n in L_bdlr.n]  
+    #kernal_compare = [Π_gen(q_test,n) for n in n_interp]
 
-    # gg_freq = zeros(ComplexF64, (length(kgrid.grid), fdlr.size))
-    # for (ki, k) in enumerate(kgrid.grid)
-    #     ω = k^2 / (2me) - EF
-    #     for (ni, n) in enumerate(fdlr.n)
-    #         np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
-    #         nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
-    #         #F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-    #         gg_freq[ki, ni] = Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+    kernal_freq = [RPA(q_test,n) for n in bdlr.n]
+    L_kernal_freq = [RPA(q_test,n) for n in L_bdlr.n]  
+    kernal_compare = [RPA(q_test,n) for n in n_interp]
+
+
+    kernal_test = real(DLR.matfreq2tau(:corr, kernal_freq, bdlr, bdlr.τ))
+    #kernal_freq_test=  real(DLR.tau2matfreq(:corr, kernal_test, bdlr, bdlr.n))
+    kernal_freq_test = real(DLR.tau2matfreq(:corr, kernal_test, bdlr, n_interp))
+    L_kernal_test = real(Lehmann.DLR.matfreq2tau(:corr, L_kernal_freq, L_bdlr, L_bdlr.τ))
+    #kernal_freq_test=  real(DLR.tau2matfreq(:corr, kernal_test, bdlr, bdlr.n))
+    L_kernal_freq_test = real(Lehmann.DLR.tau2matfreq(:corr, L_kernal_test, L_bdlr, n_interp))
+
+    #L_kernal_test = real(Lehmann.DLR.matfreq2dlr(:corr, L_kernal_freq, L_bdlr))
+    #kernal_freq_test=  real(DLR.tau2matfreq(:corr, kernal_test, bdlr, bdlr.n))
+    #L_kernal_freq_test = real(Lehmann.DLR.dlr2matfreq(:corr, L_kernal_test, L_bdlr, n_interp))
+
+    println("$(maximum(abs.(L_kernal_freq_test-kernal_compare))/maximum(abs.(kernal_compare)))")
+    println((kernal_compare)[1:10])
+    println(abs.(kernal_freq_test-kernal_compare)[1:10])
+    println(abs.(L_kernal_freq_test-kernal_compare)[1:10])
+
+    pic = plot(n_interp, kernal_compare[:]) 
+    pic = plot!(n_interp, L_kernal_freq_test[:])
+    
+    display(pic)
+    readline()
+    
+    gg_freq = zeros(ComplexF64, (length(kgrid.grid), fdlr.size))
+    for (ki, k) in enumerate(kgrid.grid)
+        ω = k^2 / (2me) - EF
+        for (ni, n) in enumerate(fdlr.n)
+            np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
+            nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
+            #F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+            gg_freq[ki, ni] = Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
             
-    #     end
+        end
 
-    # end
+    end
     
-    # #println("F_imag=$(F_max)")
+    #println("F_imag=$(F_max)")
     
-    # gg_test = real(DLR.matfreq2tau(:fermi, gg_freq, fdlr, fdlr.τ, axis=2))
-    # gg_τ = GG_τ(kgrid, fdlr.τ)
-    # ind=findmax(abs.(gg_τ-gg_test))[2]
-    # println(sum(gg_τ),"\t",sum(gg_test))
-    # println("max gg err:$(maximum(abs.(gg_test.-gg_τ))), $(kgrid.grid[ind[1]]), $(fdlr.τ[ind[2]])")
-    # p = plot(fdlr.τ[:], gg_τ[ind[1],:]) #, xlim=(xMin,xMax), ylim=(yMin, yMax))
-    # p = plot!(fdlr.τ[:], gg_test[ind[1],:])
-    # display(p)
-    # readline()
+    gg_test = real(DLR.matfreq2tau(:acorr, gg_freq, fdlr, fdlr.τ, axis=2))
+    gg_τ = GG_τ(kgrid, fdlr.τ)
+    ind=findmax(abs.(gg_τ-gg_test))[2]
+    println(sum(gg_τ),"\t",sum(gg_test))
+    println("max gg err:$(maximum(abs.(gg_test.-gg_τ))), $(kgrid.grid[ind[1]]), $(fdlr.τ[ind[2]])")
+    p = plot(fdlr.τ[:], gg_τ[ind[1],:]) #, xlim=(xMin,xMax), ylim=(yMin, yMax))
+    p = plot!(fdlr.τ[:], gg_test[ind[1],:])
+    display(p)
+    readline()
     checkKLMass(kpanel_bose, order_int)
     @assert 1==0 "exit"
     #Composite_int_kf( kpanel_bose, order_int)
