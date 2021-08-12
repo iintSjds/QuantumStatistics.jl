@@ -245,12 +245,8 @@ end
 function main_G0W0(istest=false)
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
     println(G0_τ(1.0, EPS), "\t", G0_τ(1.0, -EPS))
-    if(β<=10000)
-    	  fdlr = DLR.DLRGrid(:fermi, 1000EF, β, 1e-10)
-    else
-	      fdlr = DLR.DLRGrid(:fermi, 100EF, β, 1e-10)	
-    end
-    bdlr = DLR.DLRGrid(:corr, 100EF, β, 1e-10) 
+    fdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)	
+    bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10) 
 
     kpanel = KPanel(Nk, kF, maxK, minK)
     kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
@@ -314,12 +310,8 @@ end
 function main_GW0(istest=false)
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
     println(G0_τ(1.0, EPS), "\t", G0_τ(1.0, -EPS))
-    if(β<=10000)
-    	  fdlr = DLR.DLRGrid(:fermi, 1000EF, β, 1e-10)
-    else
-	      fdlr = DLR.DLRGrid(:fermi, 100EF, β, 1e-10)	
-    end
-    bdlr = DLR.DLRGrid(:corr, 100EF, β, 1e-10) 
+    fdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)
+    bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10)
 
     kpanel = KPanel(Nk, kF, maxK, minK)
     kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
@@ -408,9 +400,9 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     if sigma_type == :gw0
-        main_GW0(true)
+        main_GW0(false)
     elseif sigma_type == :g0w0
-        main_G0W0(true)
+        main_G0W0(false)
     end
 
 end

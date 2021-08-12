@@ -38,6 +38,8 @@ for k in range(1,size+1):
 	fo=open("{0}/".format(k)+fname,"w")
 	fo.write(("module parameter\n"+
 		"using StaticArrays, QuantumStatistics\n"+
+        "const sigma_type = :none\n"+
+        "const interaction_type = :ko\n"+
 		"const test_KL = false\n"+
 		"const WID = %d\n"+
 		"const me = 0.5\n"+	
@@ -49,6 +51,9 @@ for k in range(1,size+1):
 		"const kF = 1.0\n"+
 		"const EF = 1.0\n"+
 		"const β = %f / kF^2\n"+
+        "const fEUV = 100EF\n"+
+        "const bEUV = 100EF\n"+
+        "const ΣEUV = 100EF\n"+ 
 		"const mass2 = 0.0\n"+
 		"const mass_Pi = 0\n"+
 		"const mom_sep = %.10e\n"+
