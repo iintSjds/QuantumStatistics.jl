@@ -1,6 +1,7 @@
 using StaticArrays:similar, maximum
-using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint, DLR, Spectral
-import Lehmann
+using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint#, DLR, Spectral
+#import Lehmann
+using Lehmann
 using LegendrePolynomials
 using Printf
 # using Gaston
@@ -107,7 +108,7 @@ function legendre_dc(bdlr, kgrid, qgrids, kpanel_bose, int_order)
             for (ni, n) in enumerate(bdlr.n)
                 if abs(k - p) > EPS
                     grid_int = build_int(k, p ,kpanel_bose, int_order)
-                    kernal_bare[ki,pi], kernal[ki,pi,ni] = Composite_int(k, p, n, grid_int)
+                    kernal_bare[ki,pi], kernal[ki,pi,ni] = Composite_int(k, p, n, grid_int, bdlr.β)
                     @assert isfinite(kernal[ki,pi,ni]) "fail kernal at $ki,$pi,$ni, with $(kernal[ki,pi,ni])"
                 else
                     kernal_bare[ki,pi] = 0
@@ -148,7 +149,7 @@ end
 
 
 
-function Composite_int(k, p, n, grid_int)
+function Composite_int(k, p, n, grid_int, β=β)
     sum = 0
     sum_bare = 0
     g = e0^2
@@ -158,9 +159,9 @@ function Composite_int(k, p, n, grid_int)
             legendre_x = sign(legendre_x)*1
         end
         wq = grid_int.wgrid[qi]
-        sum += Pl(legendre_x, channel)*4*π*g/q*RPA(q, n) * wq
+        sum += Pl(legendre_x, channel)*4*π*g/q*RPA(q, n, β) * wq
         if(test_KL == true)
-            sum += -Pl(legendre_x, channel)*4*π*g/q*RPA_mass(q, n) * wq            
+            sum += -Pl(legendre_x, channel)*4*π*g/q*RPA_mass(q, n, β) * wq            
         end
         #sum += Pl(legendre_x, channel)*4*π*g/q*KO(q, n) * wq        
         #sum += q*Pl(legendre_x, channel)*FT_RPA(q, n) * wq
@@ -501,7 +502,7 @@ function Π_gen(q, n)
     return kernal
 end
 
-function RPA(q, n)
+function RPA(q, n, β=β)
     g = e0^2
     kernal = 0.0
     Π = 0.0
