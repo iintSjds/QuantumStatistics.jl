@@ -351,6 +351,16 @@ function main_GW0(istest=false)
         Σ_freq = DLR.tau2matfreq(:fermi, Σ, fdlr, fdlr.n, axis=2)
         ΣR = real(Σ_freq)
         ΣI = imag(Σ_freq)
+        if istest
+            Σ_tau_compare = DLR.matfreq2tau(:fermi, Σ_freq, fdlr, fdlr.τ, axis=2)
+            Σ_freq_compare = DLR.tau2matfreq(:fermi, Σ_tau_compare, fdlr, fdlr.n, axis=2)
+            println(maximum(abs.(real(Σ_freq_compare)-ΣR)))
+            Σ_dlr = DLR.tau2dlr(:fermi, Σ, fdlr, axis=2)
+
+            pic = plot(fdlr.ω, real(Σ_dlr)[kF_label,:])
+            display(pic)
+            readline()
+        end
         Σ_shift = ΣR[kF_label,ω0_label]+real(Σ0)[kF_label]
         ΣR = broadcast(+, real(Σ0) .- Σ_shift, ΣR)
         ΣI = broadcast(+, imag(Σ0), ΣI)
