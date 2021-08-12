@@ -22,12 +22,8 @@ include("grid.jl")
 
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    if(β<=10000)
-    	  fdlr = DLR.DLRGrid(:acorr, 1000EF, β, 1e-10)
-    else
-	      fdlr = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)	
-    end
-    bdlr = DLR.DLRGrid(:corr, 100EF, β, 1e-10) 
+    fdlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10) 
+    bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10) 
     kpanel = KPanel(Nk, kF, maxK, minK)
     kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
     kgrid = CompositeGrid(kpanel, order, :cheb)

@@ -5,6 +5,8 @@ using StaticArrays, QuantumStatistics
 
 
 ###### constants ###########
+const sigma_type = :none
+const interaction_type = :ko
 const test_KL = false
 const WID = 1
 const me = 0.5  # electron mass
@@ -17,6 +19,10 @@ const e0 = sqrt(rs*2.0/(9π/4.0)^(1.0/3))  #sqrt(2) electric charge
 const kF = 1.0  #(dim == 3) ? (9π / (2spin))^(1 / 3) / rs : sqrt(4 / spin) / rs
 const EF = 1.0     #kF^2 / (2me)
 const β = 400 / kF^2
+
+const fEUV = 1000EF
+const bEUV = 100EF
+const ΣEUV = 1000EF
 
 
 
@@ -45,7 +51,7 @@ const Nk = 8
 const order = 4
 const order_int = 16
 const maxK = 10.0 * kF
-const minK =  0.0000001 #/ (β * kF)
+const minK =  0.000000001 #/ (β * kF)
 
 
 #println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
