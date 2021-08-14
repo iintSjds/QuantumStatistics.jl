@@ -267,6 +267,8 @@ function main_G0W0(istest=false)
     Σ0, Σ = calcΣ(kernal, kernal_bare, fdlr, kgrid, qgrids)
 
     Σ_freq = DLR.tau2matfreq(:fermi, Σ, fdlr, fdlr.n, axis=2)
+    Σ_compare = DLR.matfreq2tau(:fermi, Σ_freq, fdlr, fdlr.τ, axis=2)
+    println("$(maximum(abs.(real.(Σ_compare) - Σ))),$(maximum(abs.(imag(Σ_compare))))")
     ΣR = real(Σ_freq)
     ΣI = imag(Σ_freq)
 
