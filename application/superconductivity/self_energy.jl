@@ -3,6 +3,7 @@ using QuantumStatistics: Grid, FastMath, Utility
 using Lehmann
 using Printf
 using Plots
+using DelimitedFiles
 
 srcdir = "."
 rundir = isempty(ARGS) ? "." : (pwd()*"/"*ARGS[1])
@@ -242,6 +243,27 @@ function calcΣ(kernal, kernal_bare, fdlr, kgrid, qgrids)
 end
 
 
+function check_Σ0(filename)
+    f = open(filename, "r")
+    data = readdlm(f)
+    raw_mom = data[1:400,1]
+    raw_Σ0 = data[1:400,2]
+
+    kgrid, Σ0 = main_G0W0(false)
+
+    Σ0_compare = interpolate(Σ0, kgrid, raw_mom)
+
+    println(maximum(abs.(Σ0_compare-raw_Σ0)))
+
+    pic1 = plot(raw_mom, Σ0_compare)
+    plot!(raw_mom, raw_Σ0)
+    display(pic1)
+    #savefig(pic1, "kl_escale.pdf")
+    readline()
+
+end
+
+
 function main_G0W0(istest=false)
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
     println(G0_τ(1.0, EPS), "\t", G0_τ(1.0, -EPS))
@@ -277,6 +299,7 @@ function main_G0W0(istest=false)
     if istest
         n1, n2 = 31, 30
         println(fdlr.n)
+        println(Σ0)
         println(ΣR[kF_label,:].+Σ0[kF_label].-Σ_shift)
         println(ΣI[kF_label,:])
         println(Σ[kF_label,:])
@@ -306,7 +329,7 @@ function main_G0W0(istest=false)
         end
     end
 
-
+    return kgrid, Σ0
 end
 
 function main_GW0(istest=false)
@@ -401,6 +424,7 @@ end
 
 
 if abspath(PROGRAM_FILE) == @__FILE__
+    check_Σ0(rundir * "/" * ARGS[2])
     if sigma_type == :gw0
         main_GW0(false)
     elseif sigma_type == :g0w0

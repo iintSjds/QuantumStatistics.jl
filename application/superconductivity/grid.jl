@@ -89,7 +89,7 @@ function interpolate(f, k::CompositeGrid, grid)
         if q > k.panel[kpidx + 1]
             # if q is too large, move k panel to the next
             # println("before $q, $kpidx, $(k.panel[kpidx]) -> $(k.panel[kpidx + 1])")
-            while q > kgrid.panel[kpidx + 1]
+            while q > k.panel[kpidx + 1]
                 kpidx += 1
             end
             # println("after $q, $kpidx, $(k.panel[kpidx]) -> $(k.panel[kpidx + 1])")
