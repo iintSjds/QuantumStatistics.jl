@@ -1147,10 +1147,11 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
     outFileName = rundir*"/flow_$(WID).dat"
-    f = open(outFileName, "a")
-    @printf(f, "%.6f\t%.6e\t%d\n", rs, mom_sep, channel)
-    close(f)
-    
+    if !(isfile(outFileName))
+        f = open(outFileName, "a")
+        @printf(f, "%.6e\t%.6f\t%.6e\t%d\n", β, rs, mom_sep, channel)
+        close(f)
+    end    
     fdlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
         #        fdlr = DLR.DLRGrid(:acorr, 1000EF, β, 1e-10)
         #L_fdlr = Lehmann.DLR.DLRGrid(:acorr, 10EF, β, 1e-10)
@@ -1179,6 +1180,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     # qgrids2 = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), order÷2, :gaussian) for k in kgrid.grid] # qgrid for each k
     const kF_label = searchsortedfirst(kgrid.grid, kF)
     const qF_label = searchsortedfirst(qgrids[kF_label].grid,kF)
+      
     println("kf_label:$(kF_label), $(kgrid.grid[kF_label])")
     println("$(qF_label), $(qgrids[kF_label].grid[qF_label])")
     println("kgrid number: $(length(kgrid.grid))")
@@ -1238,13 +1240,16 @@ if abspath(PROGRAM_FILE) == @__FILE__
         #delta_0, delta, F_throw = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
     else
-        Σdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)        
+        Σdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)
+        w0_label = searchsortedfirst(Σdlr.n, 0)
         dataFileName = rundir*"/sigma_$(WID).dat"
         f = open(dataFileName, "r")
         Σ_raw = readdlm(f)
         Σ  = transpose(reshape(Σ_raw[:,1],(Σdlr.size,length(kgrid.grid)))) + transpose(reshape(Σ_raw[:,2],(Σdlr.size,length(kgrid.grid))))*im
+        println("$(imag(Σ)[kF_label,Σdlr.size-10:Σdlr.size])")
         coeff_Σ = DLR.matfreq2dlr(:fermi, Σ, Σdlr, axis=2)
         Σ = DLR.dlr2matfreq(:fermi, coeff_Σ, Σdlr, fdlr.n ,axis=2)
+        println("$(imag(Σ)[kF_label,fdlr.size-10:fdlr.size])")
         #delta_0, delta, F_throw = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
     end
