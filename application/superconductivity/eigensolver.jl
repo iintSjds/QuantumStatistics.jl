@@ -1221,17 +1221,17 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     #initialize delta
     delta = zeros(Float64, (length(kgrid.grid), fdlr.size))
-    for (ki, k) in enumerate(kgrid.grid)
-        ω = k^2 / (2me) - EF
-        for (ni, n) in enumerate(fdlr.n)
-            np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
-            nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
-            # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            delta[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-        end
-    end
-    delta =  DLR.matfreq2tau(:acorr, delta, fdlr, fdlr.τ, axis=2)
-    delta_0 = zeros(Float64, length(kgrid.grid)) #.+ 1.0 
+    # for (ki, k) in enumerate(kgrid.grid)
+    #     ω = k^2 / (2me) - EF
+    #     for (ni, n) in enumerate(fdlr.n)
+    #         np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
+    #         nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
+    #         # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+    #         delta[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+    #     end
+    # end
+    # delta =  DLR.matfreq2tau(:acorr, delta, fdlr, fdlr.τ, axis=2)
+    delta_0 = zeros(Float64, length(kgrid.grid)) .+ 1.0 
 
 
 
@@ -1240,16 +1240,15 @@ if abspath(PROGRAM_FILE) == @__FILE__
         #delta_0, delta, F_throw = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
     else
-        Σdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)
-        w0_label = searchsortedfirst(Σdlr.n, 0)
+        w0_label = 0
         dataFileName = rundir*"/sigma_$(WID).dat"
         f = open(dataFileName, "r")
         Σ_raw = readdlm(f)
-        Σ  = transpose(reshape(Σ_raw[:,1],(Σdlr.size,length(kgrid.grid)))) + transpose(reshape(Σ_raw[:,2],(Σdlr.size,length(kgrid.grid))))*im
-        println("$(imag(Σ)[kF_label,Σdlr.size-10:Σdlr.size])")
-        coeff_Σ = DLR.matfreq2dlr(:fermi, Σ, Σdlr, axis=2)
-        Σ = DLR.dlr2matfreq(:fermi, coeff_Σ, Σdlr, fdlr.n ,axis=2)
-        println("$(imag(Σ)[kF_label,fdlr.size-10:fdlr.size])")
+        Σ  = transpose(reshape(Σ_raw[:,1],(fdlr.size,length(kgrid.grid)))) + transpose(reshape(Σ_raw[:,2],(fdlr.size,length(kgrid.grid))))*im
+        # println("$(imag(Σ)[kF_label,Σdlr.size-10:Σdlr.size])")
+        # println("$(Σdlr.n[Σdlr.size-10:Σdlr.size]*2*π/β)")        
+        # println("$(imag(Σ)[kF_label,fdlr.size-10:fdlr.size])")
+        # println("$(fdlr.n[fdlr.size-10:fdlr.size]*2*π/β)")             
         #delta_0, delta, F_throw = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
     end

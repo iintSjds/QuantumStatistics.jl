@@ -2,16 +2,16 @@ import os
 import sys
 import numpy as np
 dup=1
-size0=dup*6
+size0=dup*2
 size=16*size0
 print(size)
 beta0=10000
 beta=10000
-r_s=1.5
+r_s=2.0
 channel=-1
 label=0
-mom_sep0 = 0.0015625/3.0
-mom_sep= 0.00039
+mom_sep0 = 0.00005
+mom_sep= 0.0001
 freq_sep = 2.0
 if(len(sys.argv)==2):
         label=int(sys.argv[1])
@@ -41,7 +41,9 @@ for k in range(1,size+1):
             mass2 = 5.0*channel**(-4)*np.log(channel)
         fo.write(("module parameter\n"+
                 "using StaticArrays, QuantumStatistics\n"+
-                "const test_KL = true\n"
+                "const sigma_type = :none\n"+
+                  "const interaction_type = :rpa\n"+
+                "const test_KL = false\n"+
                 "const WID = %d\n"+
                 "const me = 0.5\n"+        
                 "const dim = 3\n"+
@@ -52,6 +54,9 @@ for k in range(1,size+1):
                 "const kF = 1.0\n"+
                 "const EF = 1.0\n"+
                 "const β = %f / kF^2\n"+
+                  "const fEUV = 100EF\n"+
+                  "const bEUV = 100EF\n"+
+                  "const ΣEUV = 100EF\n"+ 
                 "const mass2 = %f\n"+
                 "const mass_Pi = 0\n"+
                 "const mom_sep = %.10e\n"+

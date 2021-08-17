@@ -242,12 +242,12 @@ function calcΣ(kernal, kernal_bare, fdlr, kgrid, qgrids)
 end
 
 
-function main_G0W0(istest=false)
+function main_G0W0(EUV,istest=false)
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
     println(G0_τ(1.0, EPS), "\t", G0_τ(1.0, -EPS))
-    fdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)	
+    fdlr = DLR.DLRGrid(:fermi, EUV, β, 1e-10)
+    adlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
     bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10) 
-
     kpanel = KPanel(Nk, kF, maxK, minK)
     kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
     kgrid = CompositeGrid(kpanel, order, :cheb)
@@ -255,7 +255,7 @@ function main_G0W0(istest=false)
     # kgrid2 = CompositeGrid(kpanel, order÷2, :cheb)
     # qgrids2 = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), order÷2, :gaussian) for k in kgrid.grid] # qgrid for each k
     kF_label = searchsortedfirst(kgrid.grid, kF)
-    ω0_label = searchsortedfirst(fdlr.n, 0)
+    ω0_label = 1 #searchsortedfirst(fdlr.n, 0)
     println("kf_label:$(kF_label), $(kgrid.grid[kF_label])")
     println("kgrid number: $(length(kgrid.grid))")
     println("max qgrid number: ", maximum([length(q.grid) for q in qgrids]))
@@ -266,46 +266,57 @@ function main_G0W0(istest=false)
 
     Σ0, Σ = calcΣ(kernal, kernal_bare, fdlr, kgrid, qgrids)
 
-    Σ_freq = DLR.tau2matfreq(:fermi, Σ, fdlr, fdlr.n, axis=2)
-    Σ_compare = DLR.matfreq2tau(:fermi, Σ_freq, fdlr, fdlr.τ, axis=2)
-    println("$(maximum(abs.(real.(Σ_compare) - Σ))),$(maximum(abs.(imag(Σ_compare))))")
+    Σ_freq = DLR.tau2matfreq(:fermi, Σ, fdlr, adlr.n, axis=2)
+    # for (ki, k) in enumerate(kgrid.grid)
+    #     ω = k^2 / (2me) - EF
+    #     for (ni, n) in enumerate(fdlr.n)
+    #         np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
+    #         nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
+    #         println(Spectral.kernelFermiΩ(nn, ω, Σ_freq[ki,ni], β) * Spectral.kernelFermiΩ(np, ω, Σ_freq[ki,ni], β), 1.0/((2*π/β*np-imag(Σ_freq[ki,ni]))^2 + (ω + real(Σ_freq[ki,ni]))^2))
+    #         #F[ki, ni] = (Δ[ki, ni]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+            
+    #     end
+    # end
+
+    #Σ_compare = DLR.matfreq2tau(:fermi, Σ_freq, fdlr, fdlr.τ, axis=2)
+    #println("$(maximum(abs.(real.(Σ_compare) - Σ))),$(maximum(abs.(imag(Σ_compare))))")
     ΣR = real(Σ_freq)
     ΣI = imag(Σ_freq)
 
     Σ_shift = ΣR[kF_label,ω0_label]+Σ0[kF_label]
 
-    if istest
-        n1, n2 = 31, 30
-        println(fdlr.n)
-        println(ΣR[kF_label,:].+Σ0[kF_label].-Σ_shift)
-        println(ΣI[kF_label,:])
-        println(Σ[kF_label,:])
+    # if istest
+    #     n1, n2 = 31, 30
+    #     println(fdlr.n)
+    #     println(ΣR[kF_label,:].+Σ0[kF_label].-Σ_shift)
+    #     println(ΣI[kF_label,:])
+    #     println(Σ[kF_label,:])
 
-        pic1 = plot(fdlr.n[n1:end-n2], ΣR[kF_label,n1:end-n2].+Σ0[kF_label].-Σ_shift)
-        plot!(pic1,fdlr.n[n1:end-n2], ΣI[kF_label,n1:end-n2])
-        display(pic1)
-        #savefig(pic1, "kl_escale.pdf")
-        readline()
+    #     pic1 = plot(fdlr.n[n1:end-n2], ΣR[kF_label,n1:end-n2].+Σ0[kF_label].-Σ_shift)
+    #     plot!(pic1,fdlr.n[n1:end-n2], ΣI[kF_label,n1:end-n2])
+    #     display(pic1)
+    #     #savefig(pic1, "kl_escale.pdf")
+    #     readline()
 
-        pic2 = plot(fdlr.τ, Σ[kF_label,:])
-        display(pic2)
-        readline()
+    #     pic2 = plot(fdlr.τ, Σ[kF_label,:])
+    #     display(pic2)
+    #     readline()
 
-        pic3 = plot(kgrid.grid, Σ0)
-        display(pic3)
-        readline()
+    #     pic3 = plot(kgrid.grid, Σ0)
+    #     display(pic3)
+    #     readline()
 
-    end
+    # end
 
 
     outFileName = rundir*"/sigma_$(WID).dat"
     f = open(outFileName, "w")
     for (ki, k) in enumerate(kgrid.grid)
-        for (ni, n) in enumerate(fdlr.τ)
+        for (ni, n) in enumerate(adlr.n)
             @printf(f, "%32.17g\t%32.17g\n", ΣR[ki,ni]+Σ0[ki]-Σ_shift, ΣI[ki,ni])
         end
     end
-
+    return Σ_freq
 
 end
 
@@ -404,7 +415,17 @@ if abspath(PROGRAM_FILE) == @__FILE__
     if sigma_type == :gw0
         main_GW0(false)
     elseif sigma_type == :g0w0
-        main_G0W0(false)
+        # test2 = main_G0W0(10ΣEUV)
+        test1 = main_G0W0(ΣEUV)
+        # fdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)
+        # fdlr2 = DLR.DLRGrid(:fermi, 10ΣEUV, β, 1e-10)
+        # kpanel = KPanel(Nk, kF, maxK, minK)
+        # kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
+        # kgrid = CompositeGrid(kpanel, order, :cheb)
+        # qgrids = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), order, :gaussian) for k in kgrid.grid]
+        # test_compare = DLR.matfreq2dlr(:fermi, test2, fdlr2, axis=2)
+        # test_compare = DLR.dlr2matfreq(:fermi, test_compare, fdlr2, fdlr.n, axis=2)
+        # println("$(maximum(abs.(test_compare - test1)))")
     end
 
 end
