@@ -7,7 +7,7 @@ using Lehmann
 using LinearAlgebra
 using Printf
 #using Gaston
-#using Plots
+using Plots
 using Statistics
 
 srcdir = "."
@@ -34,10 +34,10 @@ function main()
     # else
 	  #     fdlr = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)	
     # end
-    fdlr = DLR.DLRGrid(:acorr, 1e8/β, β, 1e-10)
+    fdlr = DLR.DLRGrid(:acorr, 1e8/β, β, 1e-12)
     #fdlr2 = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)
-    bdlr_aim = DLR.DLRGrid(:corr, 1e8/β, β, 1e-10)
-    bdlr_low = DLR.DLRGrid(:corr, 100EF, 1000000, 1e-10)
+    bdlr_aim = DLR.DLRGrid(:corr, 1e8/β, β, 1e-12)
+    bdlr_low = DLR.DLRGrid(:corr, 100EF, 1000000, 1e-12)
 
     kpanel = KPanel(Nk, kF, maxK, minK)
     kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
@@ -53,9 +53,10 @@ function main()
 
     kernel_bare, kernel_freq = legendre_dc(bdlr_aim, kgrid, qgrids, kpanel_bose, order_int)
     kernel = real(DLR.matfreq2tau(:corr, kernel_freq, bdlr_aim, fdlr.τ, axis=3))
+    kernel_dlr = real(DLR.matfreq2dlr(:corr, kernel_freq, bdlr_aim, axis=3))
 
     kernel_bare_low, kernel_freq_low = legendre_dc(bdlr_low, kgrid, qgrids, kpanel_bose, order_int)
-    kernel_compare = real(DLR.matfreq2dlr(:corr, kernel_freq_low, bdlr_low, axis=3))
+    kernel_compare_dlr = real(DLR.matfreq2dlr(:corr, kernel_freq_low, bdlr_low, axis=3))
 
     # kernel_compare = real(DLR.matfreq2tau(:corr, kernel_freq_low, bdlr_low, fdlr.τ .* (β/bdlr_low.β)^0, axis=3))
     # println(maximum(abs.(kernel .- kernel_compare)))
@@ -64,10 +65,16 @@ function main()
     # pic = plot(fdlr.τ, kernel[kF_label,qF_label,:]) 
     # plot!(pic, fdlr.τ, kernel_compare[kF_label,qF_label,:]) 
 
-    kernel_compare = real(DLR.dlr2matfreq(:corr, kernel_compare, bdlr_low, bdlr_aim.n ./ (β/bdlr_low.β), axis=3))
+    kernel_compare = real(DLR.dlr2matfreq(:corr, kernel_compare_dlr, bdlr_low, bdlr_aim.n ./ (β/bdlr_low.β), axis=3))
     println(maximum(abs.(kernel_freq .- kernel_compare)))
+    maxpoint = (findmax(abs.(kernel_freq .- kernel_compare)))
+    println(kgrid.grid[maxpoint[2][1]],"\t",qgrids[maxpoint[2][1]].grid[maxpoint[2][2]],"\t",bdlr_aim.n[maxpoint[2][3]])
+    println(qgrids[maxpoint[2][1]].grid[maxpoint[2][2]+1])
+    println(qgrids[maxpoint[2][1]].grid[maxpoint[2][2]-11])
     println(maximum(abs.((kernel_freq .- kernel_compare)./kernel_freq)))
     println(maximum(abs.(kernel_freq)))
+    println(maximum(abs.(kernel_dlr .- kernel_compare_dlr)))
+    kF_label, qF_label = maxpoint[2][1], maxpoint[2][2]
     pic = plot(bdlr_aim.ωn, kernel_freq[kF_label,qF_label,:], markershape = :o) 
     plot!(pic, bdlr_aim.ωn, kernel_compare[kF_label,qF_label,:], markershape = :x) 
     
