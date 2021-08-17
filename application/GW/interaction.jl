@@ -1,0 +1,301 @@
+module Interaction
+
+using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint#, DLR, Spectral
+#import Lehmann
+using Lehmann
+using LegendrePolynomials
+using Printf
+
+function inf_sum(q,n)
+    a=q*q
+    sum=1.0
+    i=0
+    j=1.0
+    k=2.0
+    for i in 1:n
+        sum = sum+a/j/k
+        a=a*q*q
+        j=j*(i+2.0)
+        k=k*(i+3.0)
+    end
+    return 1.0/sum/sum
+end
+
+struct Param
+    env
+    r_s_dl::Float64
+    C1::Float64
+    C2::Float64
+    D::Float64
+    A1::Float64
+    A2::Float64
+    B1::Float64
+    B2::Float64
+
+    function Param(para)
+        env = para
+        rs = para.rs
+        e0 = para.e0
+
+        r_s_dl=sqrt(4*0.521*rs/ π );
+        C1=1-r_s_dl*r_s_dl/4.0*(1+0.07671*r_s_dl*r_s_dl*((1+12.05*r_s_dl)*(1+12.05*r_s_dl)+4.0*4.254/3.0*r_s_dl*r_s_dl*(1+7.0/8.0*12.05*r_s_dl)+1.5*1.363*r_s_dl*r_s_dl*r_s_dl*(1+8.0/9.0*12.05*r_s_dl))/(1+12.05*r_s_dl+4.254*r_s_dl*r_s_dl+1.363*r_s_dl*r_s_dl*r_s_dl)/(1+12.05*r_s_dl+4.254*r_s_dl*r_s_dl+1.363*r_s_dl*r_s_dl*r_s_dl));
+        C2=1-r_s_dl*r_s_dl/4.0*(1+r_s_dl*r_s_dl/8.0*(log(r_s_dl*r_s_dl/(r_s_dl*r_s_dl+0.990))-(1.122+1.222*r_s_dl*r_s_dl)/(1+0.533*r_s_dl*r_s_dl+0.184*r_s_dl*r_s_dl*r_s_dl*r_s_dl)));
+
+        D=inf_sum(r_s_dl,100);
+        A1=(2.0-C1-C2)/4.0/e0^2*π ;
+        A2=(C2-C1)/4.0/e0^2*π ;
+        B1=6*A1/(D+1.0);
+        B2=2*A2/(1.0-D);
+
+        return new(env, r_s_dl,C1,C2,D,A1,A2,B1,B2)
+end
+
+
+"""
+parameters:
+me, kF, e0, β
+"""
+
+
+
+function RPA(para, q, n, β=para.β, me=para.me, kF=para.kF, e0=para.e0)
+    g = e0^2
+    kernal = 0.0
+    Π = 0.0
+    Π_r= 0.0
+    if abs(q) > EPS 
+        x = q/2/kF
+        ω_n = 2*π*n/β
+        y = me*ω_n/q/kF
+        
+        
+        if n == 0
+            if abs(q - 2*kF) > EPS
+                Π = me*kF/2/π^2*(1 + (1 -x^2)*log1p(4*x/((1-x)^2))/4/x)
+            else
+                Π = me*kF/2/π^2
+            end
+            kernal = - Π/( q^2/4/π/g  + Π )                 
+        else
+            if abs(q - 2*kF) > EPS
+               
+                if y^2 < 1e-4/EPS                    
+                    theta = atan( 2*y/(y^2+x^2-1) )
+                    if theta < 0
+                        theta = theta + π
+                    end
+                    @assert theta >= 0 && theta<= π
+                    Π = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)
+                else
+                    Π = me*kF/2/π^2 * (2.0/3.0/y^2  - 2.0/5.0/y^4) #+ (6.0 - 14.0*(ω_n/4.0)^2)/21.0/y^6)
+                end
+            else
+                theta = atan( 2/y )
+                if theta < 0
+                    theta = theta + π
+                end
+                @assert theta >= 0 && theta<= π
+                Π = me*kF/2/π^2*(1 + y^2*log1p(4/(y^2))/4 - y*theta)
+            end
+            #if( y^2 < 1e-6/EPS)
+            Π0 = Π / q^2
+            kernal = - Π0/( 1.0/4/π/g  + Π0 )
+            #else
+            #    kernal = - 2.0/( 3.0*π/4/g*ω_n^2  + 2.0 )
+            #end
+                           
+            #kernal = - Π/( (q^2+mass2)/4/π/g  + Π )
+
+        end
+       
+        #kernal = Π
+    else
+        kernal = 0
+        
+    end
+
+    return kernal
+end
+
+function RPA_mass(para, q, n, β=para.β, me=para.me, kF=para.kF, e0=para.e0, mass2=para.mass2)
+    g = e0^2
+    kernal = 0.0
+    Π = 0.0
+    Π_r= 0.0
+    if abs(q) > EPS 
+        x = q/2/kF
+        ω_n = 2*π*n/β
+        y = me*ω_n/q/kF
+        
+        
+        if n == 0
+            if abs(q - 2*kF) > EPS
+                Π_r = me*kF/2/π^2*(1 + (1 -x^2)*log1p(4*x/((1-x)^2+mass2*exp(-(q-2*kF)^2/mom_sep2^2)))/4/x)
+            else
+                Π_r = me*kF/2/π^2
+            end
+            kernal = - Π_r/( q^2/4/π/g  + Π_r )
+        else
+            if abs(q - 2*kF) > EPS
+                if y^2 < 1e-4/EPS                    
+                    theta = atan( 2*y/(y^2+x^2-1) )
+                    if theta < 0
+                        theta = theta + π
+                    end
+                    @assert theta >= 0 && theta<= π
+                    Π_r = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2+mass2*exp(-(q-2*kF)^2/mom_sep2^2)))/4/x - y*theta)
+                else
+                    Π_r = me*kF/2/π^2 * (2.0/3.0/y^2  - 2.0/5.0/y^4) #+ (6.0 - 14.0*(ω_n/4.0)^2)/21.0/y^6)
+                end      
+            else
+                theta = atan( 2/y )
+                if theta < 0
+                    theta = theta + π
+                end
+                @assert theta >= 0 && theta<= π
+                Π_r = me*kF/2/π^2*(1 + y^2*log1p(4/(y^2+mass2*exp(-(q-2*kF)^2/mom_sep2^2)))/4 - y*theta)
+            end
+            Π0_r = Π_r / q^2
+            kernal = - Π0_r/( 1.0/4/π/g  + Π0_r )
+            
+            #kernal = - Π/( (q^2+mass2)/4/π/g  + Π )
+
+        end
+       
+        #kernal = Π
+    else
+        kernal = 0
+        
+    end
+
+    return kernal
+end
+
+
+
+
+function KO(para, q, n, β=para.β, me=para.me, kF=para.kF, e0=para.e0)
+    g = e0^2
+    kernal = 0.0
+    G_s=A1*q^2/(1.0+B1*q^2)+A2*q^2/(1.0+B2*q^2);
+    G_a=A1*q^2/(1.0+B1*q^2)-A2*q^2/(1.0+B2*q^2);
+    spin_factor=1.0
+    if(channel%2==0)
+        spin_factor=-3.0
+    elseif(channel%2==1)
+        spin_factor=1.0
+    end
+
+    if abs(q) > EPS 
+        x = q/2/kF
+        ω_n = 2*π*n/β
+        y = me*ω_n/q/kF
+        
+        
+        if n == 0
+            if abs(q - 2*kF) > EPS
+                Π = me*kF/2/π^2*(1 + (1 -x^2)*log1p(4*x/((1-x)^2))/4/x)
+            else
+                Π = me*kF/2/π^2
+            end
+            kernal = - Π*(1-G_s)^2/( q^2/4/π/g  + Π*(1-G_s))-spin_factor*Π*(-G_a)^2/(q^2/4/π/g + Π*(-G_a))
+        else
+            if abs(q - 2*kF) > EPS
+                if y^2 < 1e-4/EPS                    
+                    theta = atan( 2*y/(y^2+x^2-1) )
+                    if theta < 0
+                        theta = theta + π
+                    end
+                    @assert theta >= 0 && theta<= π
+                    Π = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)
+                else
+                    Π = me*kF/2/π^2 * (2.0/3.0/y^2  - 2.0/5.0/y^4) #+ (6.0 - 14.0*(ω_n/4.0)^2)/21.0/y^6)
+                end
+            else
+                theta = atan( 2/y )
+                if theta < 0
+                    theta = theta + π
+                end
+                @assert theta >= 0 && theta<= π
+                Π = me*kF/2/π^2*(1 + y^2*log1p(4/y^2)/4 - y*theta)                       
+            end
+            Π0 = Π / q^2
+            #kernal = - Π0/( 1.0/4/π/g  + Π0 )
+            kernal = - Π0*(1-G_s)^2/( 1.0/4/π/g  + Π0*(1-G_s))-spin_factor*Π0*(-G_a)^2/(1.0/4/π/g + Π0*(-G_a))
+            #kernal = - Π/( (q^2+mass2)/4/π/g  + Π )
+
+        end
+       
+        #kernal = Π
+    else
+        kernal = 0
+        
+    end
+
+    return kernal
+end
+
+function KO_mass(q, n)
+    g = e0^2
+    kernal = 0.0
+    G_s=A1*q^2/(1.0+B1*q^2)+A2*q^2/(1.0+B2*q^2);
+    G_a=A1*q^2/(1.0+B1*q^2)-A2*q^2/(1.0+B2*q^2);
+    spin_factor=1.0
+    if(channel%2==0)
+        spin_factor=-3.0
+    elseif(channel%2==1)
+        spin_factor=1.0
+    end
+
+    if abs(q) > EPS 
+        x = q/2/kF
+        ω_n = 2*π*n/β
+        y = me*ω_n/q/kF
+        
+        
+        if n == 0
+            if abs(q - 2*kF) > EPS
+                Π = me*kF/2/π^2*(1 + (1 -x^2)*log1p(4*x/((1-x)^2))/4/x)
+            else
+                Π = me*kF/2/π^2
+            end
+            kernal = - Π*(1-G_s)^2/( q^2/4/π/g  + Π*(1-G_s))-spin_factor*Π*(-G_a)^2/(q^2/4/π/g + Π*(-G_a))
+        else
+            if abs(q - 2*kF) > EPS
+                if y^2 < 1e-4/EPS                    
+                    theta = atan( 2*y/(y^2+x^2-1) )
+                    if theta < 0
+                        theta = theta + π
+                    end
+                    @assert theta >= 0 && theta<= π
+                    Π = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2+mass2*exp(-(q-2*kF)^2/mom_sep2^2)))/4/x - y*theta)
+                else
+                    Π = me*kF/2/π^2 * (2.0/3.0/y^2  - 2.0/5.0/y^4) #+ (6.0 - 14.0*(ω_n/4.0)^2)/21.0/y^6)
+                end
+            else
+                theta = atan( 2/y )
+                if theta < 0
+                    theta = theta + π
+                end
+                @assert theta >= 0 && theta<= π
+                Π = me*kF/2/π^2*(1 + y^2*log1p(4/(y^2+ mass2*exp(-(q-2*kF)^2/mom_sep2^2)))/4 - y*theta)                       
+            end
+            Π0 = Π / q^2
+            #kernal = - Π0/( 1.0/4/π/g  + Π0 )
+            kernal = - Π0*(1-G_s)^2/( 1.0/4/π/g  + Π0*(1-G_s))-spin_factor*Π0*(-G_a)^2/(1.0/4/π/g + Π0*(-G_a))
+            #kernal = - Π/( (q^2+mass2)/4/π/g  + Π )
+
+        end
+       
+        #kernal = Π
+    else
+        kernal = 0
+        
+    end
+
+    return kernal
+end
+
+
+
+end

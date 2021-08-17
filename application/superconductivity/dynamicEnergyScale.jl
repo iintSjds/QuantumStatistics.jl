@@ -1,4 +1,6 @@
-using QuantumStatistics
+using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint#, DLR, Spectral
+#import Lehmann
+using Lehmann
 using LinearAlgebra
 using DelimitedFiles
 using Printf
@@ -23,8 +25,8 @@ linreg(x, y) = hcat(fill!(similar(x), 1), x) \ y
 
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    fdlr = DLR.DLRGrid(:acorr, 1000EF, β, 1e-10)
-    bdlr = DLR.DLRGrid(:corr, 1000EF, β, 1e-10) 
+    fdlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
+    bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10) 
     kpanel = KPanel(Nk, kF, maxK, minK)
     kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
     kgrid = CompositeGrid(kpanel, order, :cheb)
@@ -34,6 +36,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     const kF_label = searchsortedfirst(kgrid.grid, kF)
     #const freq0_label = 22
     const freq0_label = 16
+    ifreqlist = [i for i in 1:length(fdlr.n) if i%8==1]
 
     dataFileName = rundir*"/delta_$(WID).dat"
 
@@ -48,9 +51,12 @@ if abspath(PROGRAM_FILE) == @__FILE__
     Δ_low  = transpose(reshape(raw_low,(fdlr.size,length(kgrid.grid))))
     Δ_high  = transpose(reshape(raw_high,(fdlr.size,length(kgrid.grid))))
 
+    flowFileName = rundir*"/flow_$(WID).dat"
+    flowData = read(flowFileName, String)
+    λ = parse(Float64, split(flowData)[end])
 
-    Δ0 = Δ0_low +Δ0_high
-    Δ = Δ_low + Δ_high
+    Δ0 = λ*Δ0_low +Δ0_high
+    Δ = λ*Δ_low + Δ_high
 
     # println(Δ0[kF_label,1:freq0_label])
     # println(Δ[kF_label,1:freq0_label])
@@ -58,6 +64,13 @@ if abspath(PROGRAM_FILE) == @__FILE__
     Δ_freq = real(DLR.tau2matfreq(:acorr, Δ, fdlr, fdlr.n, axis=2) .+ Δ0)
     Δ_freq = Δ_freq ./ Δ_freq[kF_label,1]
 
+    pic1 = plot(xlabel = "momentum(kF)", ylabel = "Δ", legend=:bottomright, title = "rs=$(rs)")
+    for i in ifreqlist
+        plot!(pic1, kgrid.grid, Δ_freq[:, i], label = "ω/EF=$(π*(2*fdlr.n[i]+1)/β)")
+    end
+    savefig(pic1, rundir*"/delta_full.pdf")
+    #readline()
+    
 
 
     #const freq0_label = searchsortedfirst(Δ_freq[kF_label, 1:end], 0.0)
