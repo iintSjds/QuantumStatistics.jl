@@ -159,7 +159,7 @@ function Composite_int(k, p, n, grid_int, β=β)
             legendre_x = sign(legendre_x)*1
         end
         wq = grid_int.wgrid[qi]
-        sum += Pl(legendre_x, channel)*4*π*g/q*RPA(q, n, β) * wq
+        sum += Pl(legendre_x, channel)*4*π*g/q*RPA(q, n) * wq
         if(test_KL == true)
             sum += -Pl(legendre_x, channel)*4*π*g/q*RPA_mass(q, n, β) * wq            
         end
@@ -349,7 +349,8 @@ function calcF(Δ0, Δ, Σ, fdlr, k::CompositeGrid)
         for (ni, n) in enumerate(fdlr.n)
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
-            F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, Σ[ki,ni], β) * Spectral.kernelFermiΩ(np, ω, Σ[ki,ni], β)
+            #F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, Σ[ki,ni], β) * Spectral.kernelFermiΩ(np, ω, Σ[ki,ni], β)
+            F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) /(((2*np+1)*π/β-imag(Σ[ki,ni]))^2 + (ω + real(Σ[ki,ni]))^2)
             #F[ki, ni] = (Δ[ki, ni]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
            
         end
