@@ -1189,6 +1189,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #kernal = dH1_freq(kgrid, qgrids, bdlr, fdlr)
     #kernal = dH1_tau(kgrid, qgrids, fdlr)
     kernal_bare, kernal_freq = legendre_dc(bdlr, kgrid, qgrids, kpanel_bose, order_int)
+    println(kernal_freq[kF_label,qF_label,:])
+    @assert 1==2 "end program"
     #L_kernal_bare, L_kernal_freq = legendre_dc(L_bdlr, kgrid, qgrids, kpanel_bose, order_int)
     #kernal_bare, kernal_freq = dH1_freq(kgrid, qgrids, bdlr, fdlr)
     kernal = real(DLR.matfreq2tau(:corr, kernal_freq, bdlr, fdlr.τ, axis=3))

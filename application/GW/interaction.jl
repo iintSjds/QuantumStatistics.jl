@@ -155,16 +155,18 @@ function RPA_mass(q, n, β=β)
     return kernal
 end
 
-function KO(q, n, β=β)
+function KO(q, n, β=β, type = :none)
     g = e0^2
     kernal = 0.0
     G_s=A1*q^2/(1.0+B1*q^2)+A2*q^2/(1.0+B2*q^2);
     G_a=A1*q^2/(1.0+B1*q^2)-A2*q^2/(1.0+B2*q^2);
-    spin_factor=1.0
-    if(channel%2==0)
-        spin_factor=-3.0
-    elseif(channel%2==1)
-        spin_factor=1.0
+    spin_factor=3.0
+    if type == :none
+        if(channel%2==0)
+            spin_factor=-3.0
+        elseif(channel%2==1)
+            spin_factor=1.0
+        end
     end
 
     if abs(q) > EPS 
@@ -216,16 +218,18 @@ function KO(q, n, β=β)
     return kernal
 end
 
-function KO_mass(q, n, β=β)
+function KO_mass(q, n, β=β, type = :none)
     g = e0^2
     kernal = 0.0
     G_s=A1*q^2/(1.0+B1*q^2)+A2*q^2/(1.0+B2*q^2);
     G_a=A1*q^2/(1.0+B1*q^2)-A2*q^2/(1.0+B2*q^2);
-    spin_factor=1.0
-    if(channel%2==0)
-        spin_factor=-3.0
-    elseif(channel%2==1)
-        spin_factor=1.0
+    spin_factor=3.0
+    if type == :none
+        if(channel%2==0)
+            spin_factor=-3.0
+        elseif(channel%2==1)
+            spin_factor=1.0
+        end
     end
 
     if abs(q) > EPS 
