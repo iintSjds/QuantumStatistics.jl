@@ -1,10 +1,21 @@
 module Interaction
 
+export RPA, RPA_mass, KO, KO_mass
+
 using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint#, DLR, Spectral
 #import Lehmann
 using Lehmann
 using LegendrePolynomials
 using Printf
+using Parameters
+
+srcdir = "."
+rundir = isempty(ARGS) ? "." : (pwd()*"/"*ARGS[1])
+
+
+include(rundir*"/parameter.jl")
+using .parameter
+@unpack me, kF, rs, e0, β, EPS, mom_sep2, mass2, channel = parameter.Para()
 
 function inf_sum(q,n)
     a=q*q
@@ -21,44 +32,17 @@ function inf_sum(q,n)
     return 1.0/sum/sum
 end
 
-struct Param
-    env
-    r_s_dl::Float64
-    C1::Float64
-    C2::Float64
-    D::Float64
-    A1::Float64
-    A2::Float64
-    B1::Float64
-    B2::Float64
-
-    function Param(para)
-        env = para
-        rs = para.rs
-        e0 = para.e0
-
-        r_s_dl=sqrt(4*0.521*rs/ π );
-        C1=1-r_s_dl*r_s_dl/4.0*(1+0.07671*r_s_dl*r_s_dl*((1+12.05*r_s_dl)*(1+12.05*r_s_dl)+4.0*4.254/3.0*r_s_dl*r_s_dl*(1+7.0/8.0*12.05*r_s_dl)+1.5*1.363*r_s_dl*r_s_dl*r_s_dl*(1+8.0/9.0*12.05*r_s_dl))/(1+12.05*r_s_dl+4.254*r_s_dl*r_s_dl+1.363*r_s_dl*r_s_dl*r_s_dl)/(1+12.05*r_s_dl+4.254*r_s_dl*r_s_dl+1.363*r_s_dl*r_s_dl*r_s_dl));
-        C2=1-r_s_dl*r_s_dl/4.0*(1+r_s_dl*r_s_dl/8.0*(log(r_s_dl*r_s_dl/(r_s_dl*r_s_dl+0.990))-(1.122+1.222*r_s_dl*r_s_dl)/(1+0.533*r_s_dl*r_s_dl+0.184*r_s_dl*r_s_dl*r_s_dl*r_s_dl)));
-
-        D=inf_sum(r_s_dl,100);
-        A1=(2.0-C1-C2)/4.0/e0^2*π ;
-        A2=(C2-C1)/4.0/e0^2*π ;
-        B1=6*A1/(D+1.0);
-        B2=2*A2/(1.0-D);
-
-        return new(env, r_s_dl,C1,C2,D,A1,A2,B1,B2)
-end
+r_s_dl=sqrt(4*0.521*rs/ π );
+C1=1-r_s_dl*r_s_dl/4.0*(1+0.07671*r_s_dl*r_s_dl*((1+12.05*r_s_dl)*(1+12.05*r_s_dl)+4.0*4.254/3.0*r_s_dl*r_s_dl*(1+7.0/8.0*12.05*r_s_dl)+1.5*1.363*r_s_dl*r_s_dl*r_s_dl*(1+8.0/9.0*12.05*r_s_dl))/(1+12.05*r_s_dl+4.254*r_s_dl*r_s_dl+1.363*r_s_dl*r_s_dl*r_s_dl)/(1+12.05*r_s_dl+4.254*r_s_dl*r_s_dl+1.363*r_s_dl*r_s_dl*r_s_dl));
+C2=1-r_s_dl*r_s_dl/4.0*(1+r_s_dl*r_s_dl/8.0*(log(r_s_dl*r_s_dl/(r_s_dl*r_s_dl+0.990))-(1.122+1.222*r_s_dl*r_s_dl)/(1+0.533*r_s_dl*r_s_dl+0.184*r_s_dl*r_s_dl*r_s_dl*r_s_dl)));
+D=inf_sum(r_s_dl,100);
+A1=(2.0-C1-C2)/4.0/e0^2*π ;
+A2=(C2-C1)/4.0/e0^2*π ;
+B1=6*A1/(D+1.0);
+B2=2*A2/(1.0-D);
 
 
-"""
-parameters:
-me, kF, e0, β
-"""
-
-
-
-function RPA(para, q, n, β=para.β, me=para.me, kF=para.kF, e0=para.e0)
+function RPA(q, n, β=β)
     g = e0^2
     kernal = 0.0
     Π = 0.0
@@ -117,7 +101,7 @@ function RPA(para, q, n, β=para.β, me=para.me, kF=para.kF, e0=para.e0)
     return kernal
 end
 
-function RPA_mass(para, q, n, β=para.β, me=para.me, kF=para.kF, e0=para.e0, mass2=para.mass2)
+function RPA_mass(q, n, β=β)
     g = e0^2
     kernal = 0.0
     Π = 0.0
@@ -171,10 +155,7 @@ function RPA_mass(para, q, n, β=para.β, me=para.me, kF=para.kF, e0=para.e0, ma
     return kernal
 end
 
-
-
-
-function KO(para, q, n, β=para.β, me=para.me, kF=para.kF, e0=para.e0)
+function KO(q, n, β=β)
     g = e0^2
     kernal = 0.0
     G_s=A1*q^2/(1.0+B1*q^2)+A2*q^2/(1.0+B2*q^2);
@@ -235,7 +216,7 @@ function KO(para, q, n, β=para.β, me=para.me, kF=para.kF, e0=para.e0)
     return kernal
 end
 
-function KO_mass(q, n)
+function KO_mass(q, n, β=β)
     g = e0^2
     kernal = 0.0
     G_s=A1*q^2/(1.0+B1*q^2)+A2*q^2/(1.0+B2*q^2);
@@ -296,6 +277,13 @@ function KO_mass(q, n)
     return kernal
 end
 
+end
 
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    println(Interaction.RPA(1.0, 1))
+    println(Interaction.RPA_mass(1.0, 1))
+    println(Interaction.KO(1.0, 1))
+    println(Interaction.KO_mass(1.0, 1))
 
 end
