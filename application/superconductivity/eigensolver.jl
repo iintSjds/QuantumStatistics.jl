@@ -1295,6 +1295,14 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #Δ0_final, Δ_final = Explicit_Solver_inherit( kgrid, qgrids, fdlr, fdlr2, bdlr)
     Δ_freq_low = DLR.tau2matfreq(:acorr, Δ_final_low, fdlr, fdlr.n, axis=2)
     Δ_freq_high = DLR.tau2matfreq(:acorr, Δ_final_high, fdlr, fdlr.n, axis=2)
+    Δ_out = zeros(Float64,  fdlr.size)
+    for (ni,n) in enumerate(fdlr.n)
+        Δ_out[ni] = lamu*(Δ0_final_low[kF_label] + Δ_freq_low[kF_label,ni]) + Δ0_final_high[kF_label] +  Δ_freq_high[kF_label,ni]
+    end
+    # pic = plot()
+    # pic = plot!(fdlr.n[1:20],Δ_out[1:20])
+    # display(pic)
+    # readline()
     F_τ = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
     F_τ = real.(DLR.dlr2tau(:acorr, F_τ, fdlr, extT_grid.grid , axis=2))
     #F_τ = real(DLR.matfreq2tau(:acorr, F_freq, fdlr, extT_grid.grid, axis=2))
@@ -1309,31 +1317,31 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #Δ_freq2 = DLR.tau2matfreq(:acorr, Δ_final2, fdlr, fdlr.n, axis=2)
 
 
-    outFileName = rundir*"/f_$(WID).dat"
-    f = open(outFileName, "w")
+    # outFileName = rundir*"/f_$(WID).dat"
+    # f = open(outFileName, "w")
 
-    kpidx = 1
-    head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
-    x = @view kgrid.grid[head:tail]
-    w = @view kgrid.wgrid[head:tail]
-    for (ki, k) in enumerate(extK_grid.grid)
-        if k > kgrid.panel[kpidx + 1]
-            # if q is larger than the end of the current panel, move k panel to the next panel
-            while k > kgrid.panel[kpidx + 1]
-                global kpidx += 1
-            end
-            global head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
-            global x = @view kgrid.grid[head:tail]
-            global w = @view kgrid.wgrid[head:tail]
-            @assert kpidx <= kgrid.Np
-        end
-        for (τi, τ) in enumerate(extT_grid.grid)
-            fx = @view F_τ[head:tail, τi] # all F in the same kpidx-th K panel
-            F_ext[ki, τi] = barycheb(order, k, fx, w, x) # the interpolation is independent with the panel length
-            #@printf("%32.17g  %32.17g  %32.17g\n",extK_grid[ki] ,extT_grid[τi], F_ext[ki, τi])
-            @printf(f, "%32.17g  %32.17g  %32.17g\n",extK_grid[ki] ,extT_grid[τi], F_ext[ki, τi])
-        end
-    end
+    # kpidx = 1
+    # head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+    # x = @view kgrid.grid[head:tail]
+    # w = @view kgrid.wgrid[head:tail]
+    # for (ki, k) in enumerate(extK_grid.grid)
+    #     if k > kgrid.panel[kpidx + 1]
+    #         # if q is larger than the end of the current panel, move k panel to the next panel
+    #         while k > kgrid.panel[kpidx + 1]
+    #             global kpidx += 1
+    #         end
+    #         global head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+    #         global x = @view kgrid.grid[head:tail]
+    #         global w = @view kgrid.wgrid[head:tail]
+    #         @assert kpidx <= kgrid.Np
+    #     end
+    #     for (τi, τ) in enumerate(extT_grid.grid)
+    #         fx = @view F_τ[head:tail, τi] # all F in the same kpidx-th K panel
+    #         F_ext[ki, τi] = barycheb(order, k, fx, w, x) # the interpolation is independent with the panel length
+    #         #@printf("%32.17g  %32.17g  %32.17g\n",extK_grid[ki] ,extT_grid[τi], F_ext[ki, τi])
+    #         @printf(f, "%32.17g  %32.17g  %32.17g\n",extK_grid[ki] ,extT_grid[τi], F_ext[ki, τi])
+    #     end
+    # end
     
 
 
@@ -1344,7 +1352,11 @@ if abspath(PROGRAM_FILE) == @__FILE__
             @printf(f, "%32.17g  %32.17g  %32.17g %32.17g\n",Δ0_final_low[ki], Δ0_final_high[ki], Δ_final_low[ki,ni], Δ_final_high[ki,ni])
         end
     end
-
+    println(Δ_out)
+    outFileName = rundir*"/flow_$(WID).dat"
+    f = open(outFileName, "a")
+    @printf(f, "%32.17g\t%32.17g\n",Δ_out[1], Δ_out[end] )
+    close(f)
 
 
     #println(fdlr.n, fdlr.n[fdlr.size ÷ 2 + 1])

@@ -161,7 +161,7 @@ function Composite_int(k, p, n, grid_int, β=β)
         wq = grid_int.wgrid[qi]
         sum += Pl(legendre_x, channel)*4*π*g/q*RPA(q, n) * wq
         if(test_KL == true)
-            sum += -Pl(legendre_x, channel)*4*π*g/q*RPA_mass(q, n, β) * wq            
+            sum += -Pl(legendre_x, channel)*4*π*g/q*RPA_mass(q, n) * wq            
         end
         #sum += Pl(legendre_x, channel)*4*π*g/q*KO(q, n) * wq        
         #sum += q*Pl(legendre_x, channel)*FT_RPA(q, n) * wq

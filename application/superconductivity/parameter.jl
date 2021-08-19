@@ -27,7 +27,7 @@ const ΣEUV = 100EF
 
 
 const mass2 =  0.01
-const mom_sep = 0.0001
+const mom_sep = 0.01
 const mom_sep2=1.0
 const freq_sep = 0.01
 const channel = 0

@@ -1,4 +1,6 @@
-using QuantumStatistics
+#using QuantumStatistics
+using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint #, DLR, Spectral
+using Lehmann
 using LinearAlgebra
 using DelimitedFiles
 using Printf
@@ -48,11 +50,12 @@ if abspath(PROGRAM_FILE) == @__FILE__
     Δ0_high  = (reshape(raw_0high,(fdlr.size,length(kgrid.grid))))[1,:]
     Δ_low  = transpose(reshape(raw_low,(fdlr.size,length(kgrid.grid))))
     Δ_high  = transpose(reshape(raw_high,(fdlr.size,length(kgrid.grid))))
-    F_low = calcF(Δ0_low, Δ_low, fdlr, kgrid)
+    Σ = (0.0+0.0im) * Δ_low 
+    F_low = calcF(Δ0_low, Δ_low, Σ,fdlr, kgrid)
    
     F_ins_low = DLR.tau2dlr(:acorr, F_low, fdlr, axis=2)
     F_ins_low = DLR.dlr2tau(:acorr, F_ins_low, fdlr, [1.0e-12,] , axis=2)[:,1]
-    F_high = calcF(Δ0_high, Δ_high, fdlr, kgrid)
+    F_high = calcF(Δ0_high, Δ_high, Σ,fdlr, kgrid)
     F_ins_high = DLR.tau2dlr(:acorr, F_high, fdlr, axis=2)
     F_ins_high = DLR.dlr2tau(:acorr, F_ins_high, fdlr, [1.0e-12,] , axis=2)[:,1]
     F = F_low + F_high
