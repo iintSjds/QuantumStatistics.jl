@@ -153,15 +153,24 @@ function Composite_int(k, p, n, grid_int, β=β)
     sum = 0
     sum_bare = 0
     g = e0^2
+
+    if interaction_type==:rpa
+        W_DYNAMIC=RPA
+        W_DYNAMIC_MASS=RPA_mass
+    elseif interaction_type==:ko
+        W_DYNAMIC=KO
+        W_DYNAMIC_MASS=KO_mass
+    end
+
     for (qi, q) in enumerate(grid_int.grid)
         legendre_x = (k^2 + p^2 - q^2)/2/k/p
         if(abs(abs(legendre_x)-1)<1e-12)
             legendre_x = sign(legendre_x)*1
         end
         wq = grid_int.wgrid[qi]
-        sum += Pl(legendre_x, channel)*4*π*g/q*RPA(q, n) * wq
+        sum += Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC(q, n) * wq
         if(test_KL == true)
-            sum += -Pl(legendre_x, channel)*4*π*g/q*RPA_mass(q, n) * wq            
+            sum += -Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC_MASS(q, n) * wq            
         end
         #sum += Pl(legendre_x, channel)*4*π*g/q*KO(q, n) * wq        
         #sum += q*Pl(legendre_x, channel)*FT_RPA(q, n) * wq

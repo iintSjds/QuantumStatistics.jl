@@ -37,12 +37,16 @@ function KO_sigma(q, n)
             kernal = - Π*(1-G_s)^2/( q^2/4/π/g  + Π*(1-G_s))-spin_factor*Π*(-G_a)^2/(q^2/4/π/g + Π*(-G_a))
         else
             if abs(q - 2*kF) > EPS
-                theta = atan( 2*y/(y^2+x^2-1) )
-                if theta < 0
-                    theta = theta + π
-                end
-                @assert theta >= 0 && theta<= π
-                Π = me*kF/2/π^2*(1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)                       
+                if y^2 < 1e-4/EPS                    
+                    theta = atan( 2*y/(y^2+x^2-1) )
+                    if theta < 0
+                        theta = theta + π
+                    end
+                    @assert theta >= 0 && theta<= π
+                    Π = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)
+                else
+                    Π = me*kF/2/π^2 * (2.0/3.0/y^2  - 2.0/5.0/y^4) #+ (6.0 - 14.0*(ω_n/4.0)^2)/21.0/y^6)
+                end    
             else
                 theta = atan( 2/y )
                 if theta < 0
