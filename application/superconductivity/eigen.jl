@@ -351,7 +351,7 @@ function calcF(Δ0, Δ, Σ, fdlr, k::CompositeGrid)
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             #F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, Σ[ki,ni], β) * Spectral.kernelFermiΩ(np, ω, Σ[ki,ni], β)
             F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) /(((2*np+1)*π/β-imag(Σ[ki,ni]))^2 + (ω + real(Σ[ki,ni]))^2)
-            #F[ki, ni] = (Δ[ki, ni]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+            #F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
            
         end
 
