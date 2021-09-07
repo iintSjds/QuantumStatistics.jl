@@ -577,17 +577,17 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
     #kernal_double = dH1_tau(kgrid_double, qgrids_double, fdlr)
     #kernal_2 = dH1_tau(kgrid, qgrids, fdlr2)
     delta = zeros(Float64, (length(kgrid.grid), fdlr.size))
-    for (ki, k) in enumerate(kgrid.grid)
-        ω = k^2 / (2me) - EF
-        for (ni, n) in enumerate(fdlr.n)
-            np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
-            nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
-            # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            delta[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-        end
-    end
+    # for (ki, k) in enumerate(kgrid.grid)
+    #     ω = k^2 / (2me) - EF
+    #     for (ni, n) in enumerate(fdlr.n)
+    #         np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
+    #         nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
+    #         # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+    #         delta[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+    #     end
+    # end
     delta = real(DLR.matfreq2tau(:acorr, delta, fdlr, fdlr.τ, axis=2))
-    delta_0 = zeros(Float64, length(kgrid.grid)) #.+ 1.0
+    delta_0 = zeros(Float64, length(kgrid.grid)) .+ 1.0
     delta_0_new=zeros(Float64, length(kgrid.grid))
     delta_new=zeros(Float64, (length(kgrid.grid), fdlr.size))
     F = zeros(Float64, (length(kgrid.grid), fdlr.size))
@@ -836,7 +836,11 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
     #     println(lamu)
     # end
     #return delta_0_new, delta_new
-    return delta_0, delta, F
+    outFileName = rundir*"/flow_$(WID).dat"
+    f = open(outFileName, "a")
+    @printf(f, "%32.17g\n", lamu)
+    close(f)
+    return delta_0, delta, F, lamu
 end
 
 function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, fdlr2,  bdlr )
@@ -1190,7 +1194,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #kernal = dH1_tau(kgrid, qgrids, fdlr)
     kernal_bare, kernal_freq = legendre_dc(bdlr, kgrid, qgrids, kpanel_bose, order_int)
     println(kernal_freq[kF_label,qF_label,:])
-    @assert 1==2 "end program"
+    #@assert 1==2 "end program"
     #L_kernal_bare, L_kernal_freq = legendre_dc(L_bdlr, kgrid, qgrids, kpanel_bose, order_int)
     #kernal_bare, kernal_freq = dH1_freq(kgrid, qgrids, bdlr, fdlr)
     kernal = real(DLR.matfreq2tau(:corr, kernal_freq, bdlr, fdlr.τ, axis=3))
@@ -1239,8 +1243,11 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     if(sigma_type == :none)
         Σ = (0.0+0.0im) * delta
-        #delta_0, delta, F_throw = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
-        Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
+        if method_type == :explicit
+            delta_0, delta, F, lamu = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+        else
+            Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
+        end
     else
         w0_label = 0
         dataFileName = rundir*"/sigma_$(WID).dat"
@@ -1250,9 +1257,12 @@ if abspath(PROGRAM_FILE) == @__FILE__
         # println("$(imag(Σ)[kF_label,Σdlr.size-10:Σdlr.size])")
         # println("$(Σdlr.n[Σdlr.size-10:Σdlr.size]*2*π/β)")        
         # println("$(imag(Σ)[kF_label,fdlr.size-10:fdlr.size])")
-        # println("$(fdlr.n[fdlr.size-10:fdlr.size]*2*π/β)")             
-        #delta_0, delta, F_throw = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
-        Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
+        # println("$(fdlr.n[fdlr.size-10:fdlr.size]*2*π/β)")
+        if method_type == :explicit
+            delta_0, delta, F, lamu = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+        else
+            Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
+        end
     end
 
 
@@ -1295,59 +1305,72 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #Δ0_final, Δ_final, F = Explicit_Solver(kernal, kernal_bare, kgrid, qgrids, fdlr, bdlr)
     
     #Δ0_final, Δ_final = Explicit_Solver_inherit( kgrid, qgrids, fdlr, fdlr2, bdlr)
-    Δ_freq_low = DLR.tau2matfreq(:acorr, Δ_final_low, fdlr, fdlr.n, axis=2)
-    Δ_freq_high = DLR.tau2matfreq(:acorr, Δ_final_high, fdlr, fdlr.n, axis=2)
-    F_τ = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
-    F_τ = real.(DLR.dlr2tau(:acorr, F_τ, fdlr, extT_grid.grid , axis=2))
-    #F_τ = real(DLR.matfreq2tau(:acorr, F_freq, fdlr, extT_grid.grid, axis=2))
-    println("F_τ_max:",maximum(F_τ))
-    F_ext = zeros(Float64, (length(extK_grid.grid), length(extT_grid.grid)))
+    if method_type == :implicit
+        Δ_freq_low = DLR.tau2matfreq(:acorr, Δ_final_low, fdlr, fdlr.n, axis=2)
+        Δ_freq_high = DLR.tau2matfreq(:acorr, Δ_final_high, fdlr, fdlr.n, axis=2)
+        Δ_out = zeros(Float64,  fdlr.size)
+        for (ni,n) in enumerate(fdlr.n)
+            Δ_out[ni] = lamu*(Δ0_final_low[kF_label] + Δ_freq_low[kF_label,ni]) + Δ0_final_high[kF_label] +  Δ_freq_high[kF_label,ni]
+        end
+        # pic = plot()
+        # pic = plot!(fdlr.n[1:20],Δ_out[1:20])
+        # display(pic)
+        # readline()
+        F_τ = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
+        F_τ = real.(DLR.dlr2tau(:acorr, F_τ, fdlr, extT_grid.grid , axis=2))
+        #F_τ = real(DLR.matfreq2tau(:acorr, F_freq, fdlr, extT_grid.grid, axis=2))
+        println("F_τ_max:",maximum(F_τ))
+        F_ext = zeros(Float64, (length(extK_grid.grid), length(extT_grid.grid)))
 
 
-   
-    #Δ0_final2, Δ_final2, F2 = Implicit_Renorm(kernal, kernal_bare,  kgrid, qgrids, fdlr2)
-    #Δ0_final2, Δ_final2, F2 = Explicit_Solver(kernal, kernal_bare, kgrid, qgrids, fdlr2, bdlr)
-    
-    #Δ_freq2 = DLR.tau2matfreq(:acorr, Δ_final2, fdlr, fdlr.n, axis=2)
+        
+        #Δ0_final2, Δ_final2, F2 = Implicit_Renorm(kernal, kernal_bare,  kgrid, qgrids, fdlr2)
+        #Δ0_final2, Δ_final2, F2 = Explicit_Solver(kernal, kernal_bare, kgrid, qgrids, fdlr2, bdlr)
+        
+        #Δ_freq2 = DLR.tau2matfreq(:acorr, Δ_final2, fdlr, fdlr.n, axis=2)
 
 
-    outFileName = rundir*"/f_$(WID).dat"
-    f = open(outFileName, "w")
+        # outFileName = rundir*"/f_$(WID).dat"
+        # f = open(outFileName, "w")
 
-    kpidx = 1
-    head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
-    x = @view kgrid.grid[head:tail]
-    w = @view kgrid.wgrid[head:tail]
-    for (ki, k) in enumerate(extK_grid.grid)
-        if k > kgrid.panel[kpidx + 1]
-            # if q is larger than the end of the current panel, move k panel to the next panel
-            while k > kgrid.panel[kpidx + 1]
-                global kpidx += 1
+        # kpidx = 1
+        # head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+        # x = @view kgrid.grid[head:tail]
+        # w = @view kgrid.wgrid[head:tail]
+        # for (ki, k) in enumerate(extK_grid.grid)
+        #     if k > kgrid.panel[kpidx + 1]
+        #         # if q is larger than the end of the current panel, move k panel to the next panel
+        #         while k > kgrid.panel[kpidx + 1]
+        #             global kpidx += 1
+        #         end
+        #         global head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+        #         global x = @view kgrid.grid[head:tail]
+        #         global w = @view kgrid.wgrid[head:tail]
+        #         @assert kpidx <= kgrid.Np
+        #     end
+        #     for (τi, τ) in enumerate(extT_grid.grid)
+        #         fx = @view F_τ[head:tail, τi] # all F in the same kpidx-th K panel
+        #         F_ext[ki, τi] = barycheb(order, k, fx, w, x) # the interpolation is independent with the panel length
+        #         #@printf("%32.17g  %32.17g  %32.17g\n",extK_grid[ki] ,extT_grid[τi], F_ext[ki, τi])
+        #         @printf(f, "%32.17g  %32.17g  %32.17g\n",extK_grid[ki] ,extT_grid[τi], F_ext[ki, τi])
+        #     end
+        # end
+        
+
+
+        outFileName = rundir*"/delta_$(WID).dat"
+        f = open(outFileName, "w")
+        for (ki, k) in enumerate(kgrid.grid)
+            for (ni, n) in enumerate(fdlr.τ)
+                @printf(f, "%32.17g  %32.17g  %32.17g %32.17g\n",Δ0_final_low[ki], Δ0_final_high[ki], Δ_final_low[ki,ni], Δ_final_high[ki,ni])
             end
-            global head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
-            global x = @view kgrid.grid[head:tail]
-            global w = @view kgrid.wgrid[head:tail]
-            @assert kpidx <= kgrid.Np
         end
-        for (τi, τ) in enumerate(extT_grid.grid)
-            fx = @view F_τ[head:tail, τi] # all F in the same kpidx-th K panel
-            F_ext[ki, τi] = barycheb(order, k, fx, w, x) # the interpolation is independent with the panel length
-            #@printf("%32.17g  %32.17g  %32.17g\n",extK_grid[ki] ,extT_grid[τi], F_ext[ki, τi])
-            @printf(f, "%32.17g  %32.17g  %32.17g\n",extK_grid[ki] ,extT_grid[τi], F_ext[ki, τi])
-        end
+        println(Δ_out)
+        outFileName = rundir*"/flow_$(WID).dat"
+        f = open(outFileName, "a")
+        @printf(f, "%32.17g\t%32.17g\n",Δ_out[1], Δ_out[end] )
+        close(f)
     end
-    
-
-
-    outFileName = rundir*"/delta_$(WID).dat"
-    f = open(outFileName, "w")
-    for (ki, k) in enumerate(kgrid.grid)
-        for (ni, n) in enumerate(fdlr.τ)
-            @printf(f, "%32.17g  %32.17g  %32.17g %32.17g\n",Δ0_final_low[ki], Δ0_final_high[ki], Δ_final_low[ki,ni], Δ_final_high[ki,ni])
-        end
-    end
-
-
 
     #println(fdlr.n, fdlr.n[fdlr.size ÷ 2 + 1])
     # open(filename, "w") do io

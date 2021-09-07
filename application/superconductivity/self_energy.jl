@@ -37,12 +37,16 @@ function KO_sigma(q, n)
             kernal = - Π*(1-G_s)^2/( q^2/4/π/g  + Π*(1-G_s))-spin_factor*Π*(-G_a)^2/(q^2/4/π/g + Π*(-G_a))
         else
             if abs(q - 2*kF) > EPS
-                theta = atan( 2*y/(y^2+x^2-1) )
-                if theta < 0
-                    theta = theta + π
-                end
-                @assert theta >= 0 && theta<= π
-                Π = me*kF/2/π^2*(1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)                       
+                if y^2 < 1e-4/EPS                    
+                    theta = atan( 2*y/(y^2+x^2-1) )
+                    if theta < 0
+                        theta = theta + π
+                    end
+                    @assert theta >= 0 && theta<= π
+                    Π = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)
+                else
+                    Π = me*kF/2/π^2 * (2.0/3.0/y^2  - 2.0/5.0/y^4) #+ (6.0 - 14.0*(ω_n/4.0)^2)/21.0/y^6)
+                end    
             else
                 theta = atan( 2/y )
                 if theta < 0
@@ -243,9 +247,6 @@ function calcΣ(kernal, kernal_bare, fdlr, kgrid, qgrids)
 end
 
 
-<<<<<<< HEAD
-function main_G0W0(EUV,istest=false)
-=======
 function check_Σ0(filename)
     f = open(filename, "r")
     data = readdlm(f)
@@ -266,9 +267,7 @@ function check_Σ0(filename)
 
 end
 
-
-function main_G0W0(istest=false)
->>>>>>> 9d01a3f1d2ca75fbd09fbefb6a38ae69c504a097
+function main_G0W0(EUV,istest=false)
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
     println(G0_τ(1.0, EPS), "\t", G0_τ(1.0, -EPS))
     fdlr = DLR.DLRGrid(:fermi, EUV, β, 1e-10)
@@ -310,15 +309,6 @@ function main_G0W0(istest=false)
     ΣI = imag(Σ_freq)
 
     Σ_shift = ΣR[kF_label,ω0_label]+Σ0[kF_label]
-
-<<<<<<< HEAD
-    # if istest
-    #     n1, n2 = 31, 30
-    #     println(fdlr.n)
-    #     println(ΣR[kF_label,:].+Σ0[kF_label].-Σ_shift)
-    #     println(ΣI[kF_label,:])
-    #     println(Σ[kF_label,:])
-=======
     if istest
         n1, n2 = 31, 30
         println(fdlr.n)
@@ -326,8 +316,7 @@ function main_G0W0(istest=false)
         println(ΣR[kF_label,:].+Σ0[kF_label].-Σ_shift)
         println(ΣI[kF_label,:])
         println(Σ[kF_label,:])
->>>>>>> 9d01a3f1d2ca75fbd09fbefb6a38ae69c504a097
-
+    end
     #     pic1 = plot(fdlr.n[n1:end-n2], ΣR[kF_label,n1:end-n2].+Σ0[kF_label].-Σ_shift)
     #     plot!(pic1,fdlr.n[n1:end-n2], ΣI[kF_label,n1:end-n2])
     #     display(pic1)
@@ -346,19 +335,15 @@ function main_G0W0(istest=false)
 
 
     outFileName = rundir*"/sigma_$(WID).dat"
+    println(outFileName)
     f = open(outFileName, "w")
     for (ki, k) in enumerate(kgrid.grid)
         for (ni, n) in enumerate(adlr.n)
             @printf(f, "%32.17g\t%32.17g\n", ΣR[ki,ni]+Σ0[ki]-Σ_shift, ΣI[ki,ni])
         end
     end
-<<<<<<< HEAD
     return Σ_freq
 
-=======
-
-    return kgrid, Σ0
->>>>>>> 9d01a3f1d2ca75fbd09fbefb6a38ae69c504a097
 end
 
 function main_GW0(istest=false)
@@ -453,7 +438,7 @@ end
 
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    check_Σ0(rundir * "/" * ARGS[2])
+    #check_Σ0(rundir * "/" * ARGS[2])
     if sigma_type == :gw0
         main_GW0(false)
     elseif sigma_type == :g0w0
