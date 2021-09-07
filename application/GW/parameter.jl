@@ -18,7 +18,7 @@ using Parameters
     e0::Float64 = sqrt(rs*2.0/(9π/4.0)^(1.0/3))  #sqrt(2) electric charge
     kF::Float64 = 1.0  #(dim == 3) ? (9π / (2spin))^(1 / 3) / rs : sqrt(4 / spin) / rs
     EF::Float64 = 1.0     #kF^2 / (2me)
-    β::Float64 = 3000 / kF^2
+    β::Float64 = 200 / kF^2
 
     fEUV::Float64 = 100EF
     bEUV::Float64 = 100EF
@@ -33,9 +33,9 @@ using Parameters
     channel::Int = 0
 
     ### grid  constants ###
-    Nk::Int = 8+Int64(floor(log10(β)))
-    order::Int = 8
-    order_int::Int = 16
+    Nk::Int = 8#8+Int64(floor(log10(β)))
+    order::Int = 4
+    order_int::Int = 8
     maxK::Float64 = 10.0 * kF
     minK::Float64 =  0.0001/ (β * kF)
 

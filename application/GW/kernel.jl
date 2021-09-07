@@ -19,7 +19,7 @@ using .Interaction
 include(rundir*"/parameter.jl")
 using .parameter
 
-@unpack me, kF, rs, e0, β, EPS, mom_sep2, mass2, channel, test_KL, bEUV = parameter.Para()
+@unpack me, kF, rs, e0, EPS, mom_sep2, mass2, channel, test_KL, bEUV, order_int = parameter.Para()
 
 @inline function kernel_integrand(k, p, n, q, β, W)
     g = e0^2
@@ -27,7 +27,7 @@ using .parameter
     if(abs(abs(legendre_x)-1)<1e-12)
         legendre_x = sign(legendre_x)*1
     end
-    return Pl(legendre_x, channel)*4*π*g/q*RPA(q, n)
+    return Pl(legendre_x, channel)*4*π*g/q*W(q, n)
 end
 
 @inline function kernel0_integrand(k, p, q)
@@ -40,7 +40,7 @@ end
     return Pl(legendre_x, channel)*4*π*g/q
 end
 
-@inline function W(q, n, β, sigma_type, test_KL)
+@inline function DressedW(q, n, β, sigma_type, test_KL, interaction_type)
     if(test_KL == true)
         if interaction_type == :rpa
             return -RPA_mass(q, n, β)
@@ -61,11 +61,11 @@ struct DCKernel
     interaction_type::Symbol
 
     β::Float64
-    Nk::Int
+    # Nk::Int
     kF::Float64
-    maxK::Float64
-    minK::Float64
-    order::Int
+    # maxK::Float64
+    # minK::Float64
+    # order::Int
 
     bdlr::DLR.DLRGrid
     kgrid::CompositeGrid.Composite
@@ -75,14 +75,14 @@ struct DCKernel
     kernel::Array{Float64,3}
 
     function DCKernel( β, Nk,  kF, maxK, minK, order, sigma_type, interaction_type)
-        WW(q, n) = W(q, n, β, sigma_type, test_KL)
+        WW(q, n) = DressedW(q, n, β, sigma_type, test_KL, interaction_type)
 
         bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10)
         kgrid = CompositeGrid.LogDensedGrid(:cheb, [0.0, maxK], [0.0, kF], Nk, minK, order )
-        println(kgrid.grid)
+        #println(kgrid.grid)
         qgrids = [CompositeGrid.LogDensedGrid(:gauss, [0.0, maxK], [k, kF], Nk, minK, order) for k in kgrid.grid]
         qgridmax = maximum([qg.size for qg in qgrids])
-        println(qgridmax)
+        #println(qgridmax)
 
         kernel_bare = zeros(Float64, (length(kgrid.grid), (qgridmax)))
         kernel = zeros(Float64, (length(kgrid.grid), (qgridmax), bdlr.size))
@@ -110,7 +110,7 @@ struct DCKernel
                     subgrids = subgrids = Vector{SubGridType}([])
                     for i in 1:int_panel.size-1
                         _bound = [int_panel[i],int_panel[i+1]]
-                        push!(subgrids, SubGridType(_bound,order))
+                        push!(subgrids, SubGridType(_bound,order_int))
                     end
                     
                     int_grid=CompositeGrid.Composite{Float64,SimpleGrid.Arbitrary{Float64},SubGridType}(int_panel,subgrids)
@@ -119,7 +119,7 @@ struct DCKernel
                     kernel_bare[ki, pi] = Interp.integrate1D(data, int_grid)
 
                     for (ni, n) in enumerate(bdlr.n)
-                        data = [kernel_integrand(k, p, n, q, β, W) for q in int_grid.grid]
+                        data = [kernel_integrand(k, p, n, q, β, WW) for q in int_grid.grid]
                         kernel[ki, pi, ni] = Interp.integrate1D(data, int_grid)
                         @assert isfinite(kernel[ki,pi,ni]) "fail kernel at $ki,$pi,$ni, with $(kernel[ki,pi,ni])"
                     end
@@ -133,8 +133,34 @@ struct DCKernel
             end
         end
         
-        return new(sigma_type, interaction_type ,β, Nk, kF, maxK, minK, order, bdlr, kgrid, qgrids, kernel_bare, kernel)
+        return new(sigma_type, interaction_type ,β,kF, bdlr, kgrid, qgrids, kernel_bare, kernel)
     end
+
+    function DCKernel(fineKernel::DCKernel, β)
+        # extrapolate to kernel of β from fineKernel of lower temperature
+        @assert β<fineKernel.β "can only extrapolate from low temp to high temp!"
+        sigma_type, interaction_type, kgrid, qgrids = fineKernel.sigma_type, fineKernel.interaction_type, fineKernel.kgrid, fineKernel.qgrids
+        kF = fineKernel.kF
+
+        bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10)
+
+        kernel_bare = fineKernel.kernel_bare
+
+        fineKernel_dlr = real(DLR.matfreq2dlr(:corr, fineKernel.kernel, fineKernel.bdlr, axis=3))
+        kernel = real(DLR.dlr2matfreq(:corr, fineKernel_dlr, fineKernel.bdlr, bdlr.n ./ (β/fineKernel.β), axis=3))
+
+        return new(sigma_type, interaction_type ,β,kF, bdlr, kgrid, qgrids, kernel_bare, kernel)
+    end
+
+
+
+end
+
+function save(k::DCKernel, filename::String)
+    f = open(filename, "w")
+    @printf(f, "%32.17g\t%32.17g\t%32.17g\t%32.17g\n", )
+
+
 
 end
 
@@ -152,9 +178,14 @@ if abspath(PROGRAM_FILE) == @__FILE__
     # println(DecomposedKernel.KO(1.0, 1))
     # println(DecomposedKernel.KO_mass(1.0, 1))
     kernel = (DecomposedKernel.DCKernel( β, Nk,kF,maxK, minK, order, :none, :rpa))
+    kernel_fine = (DecomposedKernel.DCKernel( 1e6, Nk,kF,maxK, minK, order, :none, :rpa))
+    kernel2 = DecomposedKernel.DCKernel(kernel_fine, β)
     kF_label = searchsortedfirst(kernel.kgrid.grid, kernel.kF)
     qF_label = searchsortedfirst(kernel.qgrids[kF_label].grid, kernel.kF)
+    println(kernel_fine.kernel[kF_label,qF_label,:])
     println(kernel.kernel[kF_label,qF_label,:])
-
+    println(kernel2.kernel[kF_label,qF_label,:])
+    println(maximum(abs.(kernel.kernel-kernel2.kernel)))
+    println(maximum(abs.(kernel.kernel)))
 
 end
