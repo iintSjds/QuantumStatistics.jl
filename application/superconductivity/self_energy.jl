@@ -4,6 +4,7 @@ using Lehmann
 using Printf
 using Plots
 using DelimitedFiles
+using LaTeXStrings
 
 srcdir = "."
 rundir = isempty(ARGS) ? "." : (pwd()*"/"*ARGS[1])
@@ -437,8 +438,41 @@ function main_GW0(istest=false)
 end
 
 
+function plot_kernel_freq(EUV,istest=false)
+    println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
+    println(G0_τ(1.0, EPS), "\t", G0_τ(1.0, -EPS))
+    fdlr = DLR.DLRGrid(:fermi, EUV, β, 1e-10)
+    adlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
+    bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10) 
+    kpanel = KPanel(Nk, kF, maxK, minK)
+    kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
+    kgrid = CompositeGrid(kpanel, order, :cheb)
+    qgrids = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), order, :gaussian) for k in kgrid.grid] # qgrid for each k in kgrid.grid
+    # kgrid2 = CompositeGrid(kpanel, order÷2, :cheb)
+    # qgrids2 = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), order÷2, :gaussian) for k in kgrid.grid] # qgrid for each k
+    kF_label = searchsortedfirst(kgrid.grid, kF)
+    qF_label = searchsortedfirst(qgrids[kF_label].grid, kF)
+    ωend_label = searchsortedfirst(bdlr.ωn, 10)
+    ω0_label = 1 #searchsortedfirst(fdlr.n, 0)
+    println("kf_label:$(kF_label), $(kgrid.grid[kF_label])")
+    println("kgrid number: $(length(kgrid.grid))")
+    println("max qgrid number: ", maximum([length(q.grid) for q in qgrids]))
+
+    ωp = sqrt(8/3/π)*e0
+    kernal_bare, kernal_freq = legendre_dc_sigma(bdlr, kgrid, qgrids, kpanel_bose, order_int)
+
+    pic = plot(xlabel = L"$\omega_{n}/E_F$", ylabel = L"$W_{l=0}(k_F,k_F,\omega_{n})$", legend=:none)#:bottomright)
+    plot!(pic,bdlr.ωn[1:ωend_label], kernal_freq[kF_label,qF_label,1:ωend_label] .+ kernal_bare[kF_label,qF_label], label = :none, linewidth = 2)
+    plot!(pic,[ωp, ωp], [0.0, kernal_bare[kF_label,qF_label]], label = L"$\omega_{p}$", linestyle=:dot,linewidth = 2)
+    annotate!(pic, ωp+0.5, 120.0, L"$\omega_{p}$", :color)
+    # display(pic)
+    # readline()
+    savefig(pic,"w_l_freq.pdf")
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     #check_Σ0(rundir * "/" * ARGS[2])
+    plot_kernel_freq(ΣEUV)
     if sigma_type == :gw0
         main_GW0(false)
     elseif sigma_type == :g0w0
