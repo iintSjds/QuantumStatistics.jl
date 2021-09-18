@@ -70,11 +70,11 @@ function calcF_freqSep(Δ_freq, Σ, fdlr, k::CompositeGrid)
     end
     
     #F = DLR.matfreq2tau(:acorr, F, fdlr, fdlr.τ, axis=2)
-   
+    @assert isfinite(sum(F)) "fail to calculate F"
     return  real(F) # return F in matfreq space
 end
 
-function calcΔ_freqSep(F_freq, kernal_freq, kernal_bare, bdlr, fdlr, kgrid, qgrids, ASW, CSW)
+function calcΔ_freqSep(F_freq, kernal_freq, kernal_bare, bdlr, fdlr, kgrid, qgrids, ASW, CSW, lamu)
     """
         Calculate new Δ with F. Here
             F=λF_1+F_2,
@@ -94,7 +94,7 @@ function calcΔ_freqSep(F_freq, kernal_freq, kernal_bare, bdlr, fdlr, kgrid, qgr
     Δ0, Δ_tau = calcΔ(F_tau, kernal_tau, kernal_bare, fdlr, kgrid, qgrids)
     Δ_freq = DLR.tau2matfreq(:acorr, Δ_tau, fdlr, fdlr.n, axis=2)
 
-    Δ_freq2 = similar(Δ_freq)
+    Δ_freq2 = zeros(Float64, (length(kgrid.grid), fdlr.size))
 
     for (ki, k) in enumerate(kgrid.grid)
         
@@ -127,7 +127,8 @@ function calcΔ_freqSep(F_freq, kernal_freq, kernal_bare, bdlr, fdlr, kgrid, qgr
             for (ξi, ξ) in enumerate(fdlr.ω)
                 sing_result += FF[ξi] * ASW[ξi]
             end
-
+            sing_result = real(sing_result)
+            @assert isfinite(sing_result) "fail to calculate sing_result"
             for (ni, n) in enumerate(fdlr.n)
 
                 conv_result = 0.0+0.0im
@@ -137,15 +138,19 @@ function calcΔ_freqSep(F_freq, kernal_freq, kernal_bare, bdlr, fdlr, kgrid, qgr
                     end
                 end
                 conv_result = real(conv_result)
+                @assert isfinite(conv_result) "fail to calculate conv_result"
                 wq = qgrids[ki].wgrid[qi]
                 #Δ[ki, τi] += dH1(k, q, τ) * FF * wq
-                Δ_freq2[ki, ni] += conv_result * wq / β + sing_result * kernal_bare[ki, qi] / β
-
+                Δ_freq2[ki, ni] += conv_result * wq / β + sing_result * kernal_bare[ki, qi] * wq / β
+                @assert isfinite(Δ_freq2[ki, ni]) "fail to calculate Δ_freq2[ki, ni]=$(Δ_freq2[ki, ni]), ki=$(ki), ni=$(ni),qi=$(qi), conv_result=$(conv_result), sing_result=$(sing_result), bare=$(kernal_bare[ki,qi]), wq=$(wq),β=$(β)"
             end
         end
     end
 
-    return Δ_freq+Δ_freq2
+    @assert isfinite(sum(Δ_freq)) "fail to calculate Δ_freq"
+    @assert isfinite(sum(Δ_freq2)) "fail to calculate Δ_freq2"
+
+    return real(Δ_freq .+ (1-lamu)/lamu .* Δ_freq2)
 
 end
 
@@ -156,8 +161,8 @@ end
 """
 
 function Freq_Sep(delta, fdlr, i_sep)
-    low=similar(delta)
-    high=similar(delta)
+    low=zeros(Float64, (length(kgrid.grid), fdlr.size))
+    high=zeros(Float64, (length(kgrid.grid), fdlr.size))
 
     low[:, 1:i_sep] = delta[:, 1:i_sep]
     high[:, i_sep+1:end] = delta[:, i_sep+1:end] 
@@ -189,7 +194,7 @@ function Normalization(Δ0,Δ0_new, kgrid, qgrids)
         DD2 = barycheb(order, q, Δ_int2, w, x)
         #Δ0[ki] += bare(k, q) * FF * wq
         sum += DD1*DD2*wq                    
-        @assert isfinite(sum) "fail normaliztion of Δ0"
+        @assert isfinite(sum) "fail normaliztion of Δ0, DD1=$(DD1),DD2=$(DD2),wq=$(wq)"
     end
     return sum
 end
@@ -357,7 +362,7 @@ function Implicit_Renorm_Freq(Δ, kernal_freq, kernal_bare, Σ, kgrid, qgrids, f
     accm=0
     shift=5.0
     lamu0=-2.0
-    lamu=0.0
+    lamu=0.5
     n_change=10  #steps of power method iteration in one complete loop
     n_change2=10+10 #total steps of one complete loop
     delta = Δ
@@ -375,7 +380,7 @@ function Implicit_Renorm_Freq(Δ, kernal_freq, kernal_bare, Σ, kgrid, qgrids, f
         F=calcF_freqSep(delta, Σ, fdlr, kgrid)
         
         n=n+1
-        delta_new =  calcΔ_freqSep(F, kernal_freq, kernal_bare,bdlr, fdlr , kgrid, qgrids, ASW,CSW)./(-4*π*π)
+        delta_new =  calcΔ_freqSep(F, kernal_freq, kernal_bare,bdlr, fdlr , kgrid, qgrids, ASW,CSW, lamu)./(-4*π*π)
 
 
 	      delta_low_new, delta_high_new = Freq_Sep(delta_new, fdlr, i_sep)
@@ -430,9 +435,9 @@ if abspath(PROGRAM_FILE) == @__FILE__
         @printf(f, "%.6e\t%.6f\t%.6e\t%d\n", β, rs, mom_sep, channel)
         close(f)
     end    
-    fdlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
+    fdlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-8)
     println(fdlr.τ)
-    fdlr2 = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)
+    fdlr2 = DLR.DLRGrid(:acorr, 100EF, β, 1e-8)
     bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10)
 
     kpanel = KPanel(Nk, kF, maxK, minK)
@@ -459,7 +464,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     qgrids_double = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), 2*order, :gaussian) for k in kgrid_double.grid]
     
     #initialize delta
-    delta = zeros(Float64, (length(kgrid.grid), fdlr.size))
+    delta = zeros(Float64, (length(kgrid.grid), fdlr.size)) .+ 1.0
     delta_0 = zeros(Float64, length(kgrid.grid)) .+ 1.0 
 
 
