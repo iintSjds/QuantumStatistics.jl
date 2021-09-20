@@ -137,7 +137,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     γ = DLR.tau2dlr(:corr, Γ, bdlr)
     f = DLR.tau2dlr(:acorr, F, fdlr)
     Γ = DLR.dlr2matfreq(:corr, γ, bdlr, bdlr.n)
-    F = DLR.dlr2matfreq(:corr, f, fdlr, fdlr.n)
+    F = DLR.dlr2matfreq(:acorr, f, fdlr, fdlr.n)
 
     # Γ = bdlr.ωn .^ 2 ./ ( bdlr.ωn .^ 2 .+ 1.0)
     # F = fdlr.ωn .^ 2 ./ ( fdlr.ωn .^ 2 .+ 1.0)
