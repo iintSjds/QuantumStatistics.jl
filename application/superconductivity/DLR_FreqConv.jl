@@ -34,6 +34,11 @@ struct ConvMat
 
     full_mat::Array{Float64,3}
     sep_mat::Array{Float64,3}
+    high_mat::Array{Float64,3}
+
+    asw_full::Array{Float64, 1}
+    asw_low::Array{Float64, 1}
+    asw_high::Array{Float64, 1}
 
     function ConvMat(bdlr::DLR.DLRGrid, fdlr::DLR.DLRGrid, n_c::Int)
         sep_mat = zeros(Float64, (fdlr.size, bdlr.size, fdlr.size))
@@ -51,8 +56,20 @@ struct ConvMat
                 end
             end
         end
+        high_mat = full_mat .- sep_mat
 
-        return new(bdlr, fdlr, n_c, full_mat, sep_mat)
+        asw_full = zeros(Float64, fdlr.size)
+        asw_low = zeros(Float64, fdlr.size)
+        asw_high = zeros(Float64, fdlr.size)
+        for (ξi, ξ) in enumerate(fdlr.ω)
+            for m in 1:n_c
+                asw_low[ξi] += Spectral.kernelAnormalCorrΩ(m, ξ, β)/β
+            end
+            asw_full[ξi] = (1+exp(-ξ*β))*tanh(ξ*β/2.0)
+        end
+        asw_high = asw_full .- asw_low
+
+        return new(bdlr, fdlr, n_c, full_mat, sep_mat, high_mat, asw_full, asw_low, asw_high)
     end
 
 end
@@ -125,9 +142,22 @@ if abspath(PROGRAM_FILE) == @__FILE__
     const β = 200.0
 
     function Phonon(ω)
-        return g .* ω .^ 2 ./ (ω .^ 2 .+ Ω_c^2 ) #.- g .* ω .^ 2 ./ (ω .^ 2 .+ Ω_c2^2 )
+        #return g .* ω .^ 2 ./ (ω .^ 2 .+ Ω_c^2 ) #.- g .* ω .^ 2 ./ (ω .^ 2 .+ Ω_c2^2 )
+        return g ./ (ω .^ 2 .+ Ω_c^2 )
     end
 
+    function AcorrSepWeight(fdlr, Ω_c)
+        β = fdlr.β
+        n_c = Base.floor(Int, Ω_c*β/(2π) -0.5)
+        ASW = zeros(Float64, fdlr.size)
+        for (ξi, ξ) in enumerate(fdlr.ω)
+            for m in 1:n_c
+                ASW[ξi] += FreqConv.Spectral.kernelAnormalCorrΩ(m, ξ, β)
+            end
+        end
+
+        return ASW
+    end
 
     fdlr = FreqConv.DLR.DLRGrid(:acorr, fEUV, β, 1e-12)
     bdlr = FreqConv.DLR.DLRGrid(:corr, bEUV, β, 1e-12)
@@ -135,6 +165,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     println("α:", bdlr.ω)
     println("γ:", fdlr.ω)
 
+    println("ASW:", AcorrSepWeight(fdlr, 100000.0))
+    println("ASW_inf:", )
     #    α, ξ = bdlr.ω[2],fdlr.ω[3]
     α, ξ = 0.00073, 0.056
     n = 2
@@ -152,20 +184,21 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     cm = FreqConv.ConvMat(bdlr, fdlr, n_c)
 
-    # Γ = Phonon(bdlr.ωn)
-    # ωf = 2π .* (fdlr.n .+ 0.5) ./ β
-    # F = (1.0 .- 0.1 .* Phonon(ωf)) ./ ωf
-    # println(Γ)
-    # println(F)
-    # γ = FreqConv.DLR.matfreq2dlr(:corr, Γ, bdlr)
-    # f = FreqConv.DLR.matfreq2dlr(:acorr, F, fdlr)
-
-    Γt = FreqConv.MultiPole(:corr, bdlr.τ, β, bEUV)[1]
-    Ft = FreqConv.MultiPole(:acorr, fdlr.τ, β, fEUV)[1]
-    γ = FreqConv.DLR.tau2dlr(:corr, Γt, bdlr)
-    f = FreqConv.DLR.tau2dlr(:acorr, Ft, fdlr)
-    Γ = FreqConv.DLR.dlr2matfreq(:corr, γ, bdlr, bdlr.n)
-    F = FreqConv.DLR.dlr2matfreq(:acorr, f, fdlr, fdlr.n)
+    Γ = Phonon(bdlr.ωn)
+    ωf = 2π .* (fdlr.n .+ 0.5) ./ β
+    F = (1.0 .- 0.1 .* Phonon(ωf)) ./ ωf
+    println(Γ)
+    println(F)
+    γ = FreqConv.DLR.matfreq2dlr(:corr, Γ, bdlr)
+    f = FreqConv.DLR.matfreq2dlr(:acorr, F, fdlr)
+    Γt = FreqConv.DLR.dlr2tau(:corr, γ, bdlr, bdlr.τ)
+    Ft = FreqConv.DLR.dlr2tau(:acorr, f, fdlr, fdlr.τ)
+    # Γt = FreqConv.MultiPole(:corr, bdlr.τ, β, bEUV)[1]
+    # Ft = FreqConv.MultiPole(:acorr, fdlr.τ, β, fEUV)[1]
+    # γ = FreqConv.DLR.tau2dlr(:corr, Γt, bdlr)
+    # f = FreqConv.DLR.tau2dlr(:acorr, Ft, fdlr)
+    # Γ = FreqConv.DLR.dlr2matfreq(:corr, γ, bdlr, bdlr.n)
+    # F = FreqConv.DLR.dlr2matfreq(:acorr, f, fdlr, fdlr.n)
 
 
     Δ = FreqConv.freq_conv(Γ, F, cm, :low)
@@ -190,7 +223,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     println(Δ_comp[1:N])
 
-    cm = FreqConv.ConvMat(bdlr, fdlr, 10000)
+    cm = FreqConv.ConvMat(bdlr, fdlr, 100)
 
     Δ = FreqConv.freq_conv(Γ, F, cm, :full)
     println(Δ)
