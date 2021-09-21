@@ -17,7 +17,7 @@ end
 
 function sumMat(α, γ, n, β, n_c)
     result = 0.0
-    for m in 1:n_c
+    for m in -n_c-1:n_c
         result += Spectral.kernelAnormalCorrΩ(m, γ, β)*Spectral.kernelCorrΩ(n-m, α, β)
     end
 
@@ -223,7 +223,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     println(Δ_comp[1:N])
 
-    cm = FreqConv.ConvMat(bdlr, fdlr, 100)
+    cm = FreqConv.ConvMat(bdlr, fdlr, 1000)
 
     Δ = FreqConv.freq_conv(Γ, F, cm, :full)
     println(Δ)
@@ -231,4 +231,16 @@ if abspath(PROGRAM_FILE) == @__FILE__
     Δ2t = Γft .* Ft
     Δ2 = FreqConv.DLR.tau2matfreq(:acorr, Δ2t, fdlr, fdlr.n)
     println(real(Δ2))
+
+    F0 = FreqConv.DLR.dlr2tau(:acorr, f, fdlr, [0.0,])[1]
+    F1 = 0.0
+    F2 = 0.0
+    F3 = 0.0
+    for ni in 1:fdlr.size
+        global F1 = F1 + f[ni]*cm.asw_low[ni]
+        global F2 = F2 + f[ni]*cm.asw_high[ni]
+        global F3 = F3 + f[ni]*cm.asw_full[ni]
+    end
+    println("$(F0), $(F1), $(F2), $(F3)")
+
 end
