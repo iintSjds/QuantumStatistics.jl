@@ -63,8 +63,8 @@ function kernel_sep(kernel, cm)
             for ni in 1:fdlr.size
                 for ξi in 1:fdlr.size
                     for mi in 1:bdlr.size
-                        kernel_low[ki, qi, ni, ξi] = kernel_dlr[qi, ki, mi]*low_mat[ni, mi, ξi]
-                        kernel_high[ki, qi, ni, ξi] = kernel_dlr[qi, ki, mi]*high_mat[ni, mi, ξi]
+                        kernel_low[ki, qi, ni, ξi] += kernel_dlr[qi, ki, mi]*low_mat[ni, mi, ξi]
+                        kernel_high[ki, qi, ni, ξi] += kernel_dlr[qi, ki, mi]*high_mat[ni, mi, ξi]
                     end
                 end
             end
@@ -90,7 +90,7 @@ function kernel_sep_full(kernel, cm)
             for ni in 1:fdlr.size
                 for ξi in 1:fdlr.size
                     for mi in 1:bdlr.size
-                        kernel_full[ki, qi, ni, ξi] = kernel_dlr[qi, ki, mi]*cm.full_mat[ni, mi, ξi]
+                        kernel_full[ki, qi, ni, ξi] += kernel_dlr[qi, ki, mi]*cm.full_mat[ni, mi, ξi]
                     end
                 end
             end
@@ -191,6 +191,7 @@ function calcΔ_freqFull(F, kernel, kernel_bare, kgrid, qgrids, cm)
     fdlr, bdlr = cm.fdlr, cm.bdlr
     #F_tau = DLR.matfreq2tau(:acorr, F_freq, fdlr, fdlr.τ, axis=2)
     F_dlr = DLR.matfreq2dlr(:acorr, F, fdlr, axis=2)
+    println("max dlr coef:$(maximum(abs.(real(F_dlr))))")
 
     Δ_freq = zeros(Float64, (length(kgrid.grid), fdlr.size))
 
@@ -242,7 +243,7 @@ function calcΔ_freqFull(F, kernel, kernel_bare, kgrid, qgrids, cm)
                 @assert isfinite(conv_result) "fail to calculate conv_result"
                 wq = qgrids[ki].wgrid[qi]
                 #Δ[ki, τi] += dH1(k, q, τ) * FF * wq
-                Δ_freq[ki, ni] += conv_result * wq * β * fdlr.size^2 * 16 + sing_result * kernel_bare[ki, qi] * wq
+                Δ_freq[ki, ni] += conv_result * wq + sing_result * kernel_bare[ki, qi] * wq
                 @assert isfinite(Δ_freq[ki, ni]) "fail to calculate Δ_freq[ki, ni]=$(Δ_freq[ki, ni]), ki=$(ki), ni=$(ni),qi=$(qi), conv_result=$(conv_result), sing_result=$(sing_result), bare=$(kernel_bare[ki,qi]), wq=$(wq),β=$(β)"
             end
 
@@ -386,7 +387,7 @@ function Explicit_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bd
     Looptype=1
     n=0
     err=1.0 
-    shift=12.0
+    shift=5.0
     lamu0=-2.0
     lamu=0.5
     delta = Δ
@@ -446,12 +447,13 @@ end
 
 function test_calcΔ(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
     kF_label = searchsortedfirst(kgrid.grid, kF)
+    qF_label = searchsortedfirst(qgrids[kF_label].grid, kF)
 
     n_c = Base.floor(Int,Ω_c/(2π)*β)
     println("Sep:$(Ω_c), n_c:$(n_c)")
     cm = FreqConv.ConvMat(bdlr, fdlr, n_c)
 
-    kernel = kernel_sep_full(kernel_freq, cm)
+
     kernel_t = real(DLR.matfreq2tau(:corr, kernel_freq, bdlr, fdlr.τ, axis=3))
     #kernel = zeros(Float64, (size(kernel_freq)[1], size(kernel_freq)[2], fdlr.size, fdlr.size))
     #kernel_t = 0.0 .* kernel_t
@@ -459,8 +461,13 @@ function test_calcΔ(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, b
     F = calcF_freqSep(delta, Σ, fdlr, kgrid)
     Ft = DLR.matfreq2tau(:acorr, F, fdlr, fdlr.τ, axis=2)
 
-    delta_new1 = calcΔ_freqFull(F, kernel, kernel_bare .* 0.0, kgrid, qgrids, cm)
-    delta0, delta2 = calcΔ(Ft,  kernel_t, kernel_bare .* 0.0, fdlr, kgrid, qgrids)
+    println(FreqConv.freq_conv(kernel_freq[kF_label,qF_label,:], F[kF_label,:], cm, :full))
+    println(real(DLR.tau2matfreq(:acorr, kernel_t[kF_label,qF_label,:] .* Ft[kF_label,:], fdlr, fdlr.n)))
+
+    kernel = kernel_sep_full(kernel_freq, cm)
+
+    delta_new1 = calcΔ_freqFull(F, kernel, kernel_bare, kgrid, qgrids, cm)
+    delta0, delta2 = calcΔ(Ft,  kernel_t, kernel_bare, fdlr, kgrid, qgrids)
     delta_new2 = real(DLR.tau2matfreq(:acorr, delta2, fdlr, fdlr.n, axis=2))
     for ni in 1:fdlr.size
         delta_new2[:, ni] += delta0[:]
@@ -514,7 +521,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     delta_0 = zeros(Float64, length(kgrid.grid)) .+ 1.0
 
     Σ = (0.0+0.0im) * delta
-    test_calcΔ(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+    test_calcΔ(delta, kernel_freq, kernel_bare .* 0.0, Σ, kgrid, qgrids, fdlr, bdlr)
     @assert 1==2 "end"
 
     if(sigma_type == :none)
