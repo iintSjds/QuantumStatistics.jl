@@ -62,7 +62,7 @@ struct ConvMat
         asw_low = zeros(Float64, fdlr.size)
         asw_high = zeros(Float64, fdlr.size)
         for (ξi, ξ) in enumerate(fdlr.ω)
-            for m in 1:n_c
+            for m in -n_c-1:n_c
                 asw_low[ξi] += Spectral.kernelAnormalCorrΩ(m, ξ, β)/β
             end
             asw_full[ξi] = (1+exp(-ξ*β))*tanh(ξ*β/2.0)
@@ -203,25 +203,33 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     Δ = FreqConv.freq_conv(Γ, F, cm, :low)
     println(fdlr.n[1:N])
-    println(Δ[1:N])
+    println("Δ:",Δ[1:N])
 
     Δ_comp = zeros(Float64, fdlr.size)
-    Γ_mat = zeros(Float64, (fdlr.size, n_c))
-    F_v = zeros(Float64, n_c)
+    Γ_mat = zeros(Float64, (fdlr.size, 2*n_c+2))
+    F_v = zeros(Float64, 2*n_c+2)
+    # Γ_mat = zeros(Float64, (fdlr.size, n_c+1))
+    # F_v = zeros(Float64, n_c+1)
 
     for (ni, n) in enumerate(fdlr.n)
-        Γ_mat[ni, :] = FreqConv.DLR.dlr2matfreq(:corr, γ, bdlr, [n-m for m in 1:n_c])
+        Γ_mat[ni, :] = FreqConv.DLR.dlr2matfreq(:corr, γ, bdlr, [n-m for m in -n_c-1:n_c])
+        #Γ_mat[ni, :] = FreqConv.DLR.dlr2matfreq(:corr, γ, bdlr, [n-m for m in 0:n_c])
     end
-    F_v = FreqConv.DLR.dlr2matfreq(:acorr, f, fdlr, [m for m in 1:n_c])
+    F_v = FreqConv.DLR.dlr2matfreq(:acorr, f, fdlr, [m for m in -n_c-1:n_c])
+    #F_v = FreqConv.DLR.dlr2matfreq(:acorr, f, fdlr, [m for m in 0:n_c])
+
+    println(Γ_mat[1, :])
+    println(F_v)
 
     for (ni, n) in enumerate(fdlr.n)
-        for m in 1:n_c
+        for m in 1:n_c*2+2
+        #for m in 1:n_c*1+1
             # Δ_comp[ni] += test_spec(2π*(n-m)/β) * test_spec(2π*(m+0.5)/β)
-            Δ_comp[ni] += Γ_mat[ni, m]*F_v[m]
+            Δ_comp[ni] += Γ_mat[ni, m]*F_v[m] / β
         end
     end
 
-    println(Δ_comp[1:N])
+    println("Δ_comp:",Δ_comp[1:N])
 
     cm = FreqConv.ConvMat(bdlr, fdlr, 1000)
 

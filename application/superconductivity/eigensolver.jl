@@ -1,6 +1,6 @@
 """
-Power method, damp interation and implicit renormalization
-"""
+    Power method, damp interation and implicit renormalization
+    """
 #module eigensolver
 #using QuantumStatistics
 using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint #, DLR, Spectral
@@ -24,10 +24,10 @@ include("eigen.jl")
 include("grid.jl")
 
 """
-Function Separation
+    Function Separation
 
-Separate Gap function to low and high energy parts with given rule
-"""
+    Separate Gap function to low and high energy parts with given rule
+    """
 
 function Normalization(Δ0,Δ0_new, kgrid, qgrids)
     kpidx = 1 # panel index of the kgrid
@@ -121,7 +121,7 @@ function dlr_dot_freq(Δ,Δ_new,kgrid,qgrids, nfermi_grid)
         for (ωni,ωn) in enumerate(nfermi_grid)
             
             result[i] += Δ[i,ωni]*Δ_new[i,ωni] 
-          
+            
         end
     end
 
@@ -189,18 +189,18 @@ function Separation(delta0, delta, k::CompositeGrid,  fdlr)
     for i in 1:fdlr.size
         for (qi,q) in enumerate(k.grid)
             #if qi>=head && qi<tail
-                #low[qi,i] = exp(-(q-kF)^2/mom_sep^2) 
-                #low0[qi] = exp(-(q-kF)^2/mom_sep^2)
+            #low[qi,i] = exp(-(q-kF)^2/mom_sep^2) 
+            #low0[qi] = exp(-(q-kF)^2/mom_sep^2)
             #else
-                #high[qi,i] = 1-exp(-(q-kF)^2/mom_sep^2) 
-                #high0[qi] = 1- exp(-(q-kF)^2/mom_sep^2)                
+            #high[qi,i] = 1-exp(-(q-kF)^2/mom_sep^2) 
+            #high0[qi] = 1- exp(-(q-kF)^2/mom_sep^2)                
             #end
-	        low[qi,i] = (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
-                low0[qi] = (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
+	          low[qi,i] = (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
+            low0[qi] = (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
             
-                high[qi,i] = 1- (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
+            high[qi,i] = 1- (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
 
-                high0[qi] = 1- (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
+            high0[qi] = 1- (1.0 + exp(-mom_sep^2/mom_width))/(1.0+exp(((q-kF)^2-mom_sep^2)/mom_width))
 
         end
     end
@@ -269,8 +269,8 @@ function Separation_F(F_in,  k::CompositeGrid,  fdlr)
     for (ωi, ω) in enumerate(fdlr.ω)
         for j in 1:(k.Np * k.order)
             if(abs.(ω*β)<freq_sep)
-            #if(ωi<freq_sep_int)
-                    
+                #if(ωi<freq_sep_int)
+                
                 low[j,ωi]=1
             else
                 high[j,ωi]=1
@@ -288,11 +288,11 @@ end
 
 
 """
-Function Implicit_Renorm
+    Function Implicit_Renorm
 
-    For given kernal, use implicit renormalization method to solve the eigenvalue
+        For given kernal, use implicit renormalization method to solve the eigenvalue
 
-"""
+    """
 
 
 function Implicit_Renorm(Δ, Δ_0 ,kernal, kernal_bare, Σ, kgrid, qgrids, fdlr )
@@ -310,7 +310,10 @@ function Implicit_Renorm(Δ, Δ_0 ,kernal, kernal_bare, Σ, kgrid, qgrids, fdlr 
     n_change2=10+10 #total steps of one complete loop
     delta = Δ
     delta_0 = Δ_0
-   
+
+    LoopMethod = :traditional
+    halflife = 0.8
+    
     #Separate Delta
     d_0_accm=zeros(Float64, length(kgrid.grid))
     d_accm=zeros(Float64, (length(kgrid.grid), fdlr.size))
@@ -318,7 +321,7 @@ function Implicit_Renorm(Δ, Δ_0 ,kernal, kernal_bare, Σ, kgrid, qgrids, fdlr 
     F = zeros(Float64, (length(kgrid.grid), fdlr.size))
     while(n<NN && err>rtol)
         F=calcF(delta_0, delta, Σ, fdlr, kgrid)
-       
+        
         # F_test = real(DLR.tau2matfreq(:acorr, F, fdlr, fdlr.n, axis=2))
         # F_test =  real(DLR.matfreq2tau(:acorr, F_test, fdlr, fdlr.τ, axis=2))
         # println(maximum(abs.(F-F_test)))
@@ -327,32 +330,62 @@ function Implicit_Renorm(Δ, Δ_0 ,kernal, kernal_bare, Σ, kgrid, qgrids, fdlr 
         delta_0_new, delta_new =  calcΔ(F, kernal, kernal_bare, fdlr , kgrid, qgrids)./(-4*π*π)
         #delta_new = real(DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2))        
         
-	 # if(n%n_change2==0)
-   #          coeff_F = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
-   #          coeff_D = DLR.tau2dlr(:acorr, delta_new, fdlr, axis=2)
-   #          @assert maximum(abs.(coeff_D))<1e16
-   #          @assert maximum(abs.(coeff_F))<1e16
-   #      end	
+	      # if(n%n_change2==0)
+        #          coeff_F = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
+        #          coeff_D = DLR.tau2dlr(:acorr, delta_new, fdlr, axis=2)
+        #          @assert maximum(abs.(coeff_D))<1e16
+        #          @assert maximum(abs.(coeff_F))<1e16
+        #      end	
 
 
 
-	delta_0_low_new, delta_0_high_new, delta_low_new, delta_high_new = Separation(delta_0_new, delta_new, kgrid, fdlr)
-       
-	if(Looptype==0)
-            accm=accm+1
-            d_0_accm = d_0_accm + delta_0_high_new 
-            d_accm = d_accm + delta_high_new
+	      delta_0_low_new, delta_0_high_new, delta_low_new, delta_high_new = Separation(delta_0_new, delta_new, kgrid, fdlr)
+        if LoopMethod == :traditional
+	          if(Looptype==0)
+                accm=accm+1
+                d_0_accm = d_0_accm + delta_0_high_new 
+                d_accm = d_accm + delta_high_new
+                delta_0_high = d_0_accm ./ accm
+                delta_high = d_accm ./ accm
+            else
+                # lamu = dot(delta_0_low_new, delta_0_low)
+                # delta_0_low_new = delta_0_low_new+shift*delta_0_low
+                # delta_low_new = delta_low_new+shift*delta_low
+                # modulus = sqrt(dot(delta_0_low_new, delta_0_low_new))
+                # delta_0_low = delta_0_low_new ./ modulus
+                # delta_low = delta_low_new ./ modulus
+
+                #lamu = dot(delta_low_new, delta_low)
+                lamu = Normalization(delta_0_low, delta_0_low_new, kgrid, qgrids )
+                delta_0_low_new = delta_0_low_new+shift*delta_0_low
+                delta_low_new = delta_low_new+shift*delta_low
+                modulus = Normalization(delta_0_low_new, delta_0_low_new, kgrid, qgrids)
+                @assert modulus>0
+                modulus = sqrt(modulus)
+                delta_0_low = delta_0_low_new ./ modulus
+                delta_low = delta_low_new ./ modulus
+                #println(lamu)
+            end
+            delta_0 = delta_0_low .+ delta_0_high
+            delta = delta_low .+ delta_high
+            if(n%n_change2==n_change)
+                Looptype=(Looptype+1)%2
+            elseif(n%n_change2==0)
+                accm = 0
+                d_accm = d_accm .* 0
+                d_0_accm = d_0_accm .* 0
+                err=abs(lamu-lamu0)
+                lamu0=lamu
+                println(lamu)
+                Looptype=(Looptype+1)%2
+            end
+        else
+            accm=accm * halflife + 1.0
+            d_0_accm = d_0_accm .* halflife .+ delta_0_high_new 
+            d_accm = d_accm .* halflife .+ delta_high_new
             delta_0_high = d_0_accm ./ accm
             delta_high = d_accm ./ accm
-        else
-            # lamu = dot(delta_0_low_new, delta_0_low)
-            # delta_0_low_new = delta_0_low_new+shift*delta_0_low
-            # delta_low_new = delta_low_new+shift*delta_low
-            # modulus = sqrt(dot(delta_0_low_new, delta_0_low_new))
-            # delta_0_low = delta_0_low_new ./ modulus
-            # delta_low = delta_low_new ./ modulus
 
-            #lamu = dot(delta_low_new, delta_low)
             lamu = Normalization(delta_0_low, delta_0_low_new, kgrid, qgrids )
             delta_0_low_new = delta_0_low_new+shift*delta_0_low
             delta_low_new = delta_low_new+shift*delta_low
@@ -362,22 +395,16 @@ function Implicit_Renorm(Δ, Δ_0 ,kernal, kernal_bare, Σ, kgrid, qgrids, fdlr 
             delta_0_low = delta_0_low_new ./ modulus
             delta_low = delta_low_new ./ modulus
             #println(lamu)
-        end
-        delta_0 = delta_0_low .+ delta_0_high
-        delta = delta_low .+ delta_high
-        if(n%n_change2==n_change)
-            Looptype=(Looptype+1)%2
-        elseif(n%n_change2==0)
-            accm = 0
-            d_accm = d_accm .* 0
-            d_0_accm = d_0_accm .* 0
+
+            delta_0 = delta_0_low .+ delta_0_high
+            delta = delta_low .+ delta_high
             err=abs(lamu-lamu0)
             lamu0=lamu
             println(lamu)
-            Looptype=(Looptype+1)%2
         end
-        
     end
+
+    
 
     #Separate F
     # F_accm=zeros(Float64, (length(kgrid.grid), fdlr.size))
@@ -625,7 +652,7 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
 
     # println("Δ_init=$(Δ_init[1,:] )")
     #Separate Delta
-   
+    
     while(n<NN && err>rtol)
         #delta = real(DLR.tau2matfreq(:acorr, delta, fdlr, fdlr.n, axis=2))        
         F=calcF(delta_0, delta, Σ, fdlr, kgrid)
@@ -699,7 +726,7 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
         err=abs(lamu-lamu0)
         lamu0=lamu
         println(lamu)
-    
+        
         # # F_2 = calcF(Δ0_2, Δ_2, fdlr2, kgrid)
 
         # # F_2_int = DLR.tau2dlr(:acorr, F_2, fdlr2, axis=2)
@@ -709,7 +736,7 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
         # # # test dlr err
         # # # F_test =  DLR.tau2matfreq(:acorr, F, fdlr, fdlr.n, axis=2)
         # # # F_test =  DLR.matfreq2tau(:acorr, F_test, fdlr, fdlr.τ, axis=2)
-       
+        
         # # # println("err_F_real=",maximum(abs.(real.(F_test) - F)))
         # # # println("err_F_imag=", maximum(abs.(imag.(F_test) )))
         # # # println("err_F_ratio=",maximum(abs.(real.(F_test) - F)./abs.(F)))
@@ -753,8 +780,8 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
         # # println("err_F_imag=", maximum(abs.(imag.(F_test) )))
         # # println("err_F_ratio=",maximum(abs.(real.(F_test) - F)./abs.(F)))
         # Δ0_2_new, Δ_2_new = calcΔ(F_2, kernal_2, fdlr2 ,kgrid, qgrids)./(-4*π*π)  
-       
- 
+        
+        
 
 
         # #test interpolation err
@@ -788,7 +815,7 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
         # lamu2 = dot(Δ_2, Δ_2_new)
         # Δ0_2_new=Δ0_2_new+shift*Δ0_2
         # Δ_2_new=Δ_2_new+shift*Δ_2
-       
+        
         # #modulus = abs(F_new[kf_label,1])
         # err0 = maximum(abs.(abs.(Δ_2_new)-abs.(Δ_2*modulus)))
         # err = maximum(abs.(abs.(Δ0_2_new)-abs.(Δ0_2*modulus)))
@@ -907,7 +934,7 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
 
     # println("Δ_init=$(Δ_init[1,:] )")
     #Separate Delta
-   
+    
     while(n<NN)
         # #delta = real(DLR.tau2matfreq(:acorr, delta, fdlr, fdlr.n, axis=2))        
         # F=calcF(delta_0, delta, fdlr, kgrid)
@@ -932,7 +959,7 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
         # err=abs(lamu-lamu0)
         # lamu0=lamu
         # println(lamu)
-    
+        
         F_2 = calcF(Δ0_2, Δ_2, fdlr2, kgrid)
 
         F_2_int = DLR.tau2dlr(:acorr, F_2, fdlr2, axis=2)
@@ -942,7 +969,7 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
         # test dlr err
         # F_test =  DLR.tau2matfreq(:acorr, F, fdlr, fdlr.n, axis=2)
         # F_test =  DLR.matfreq2tau(:acorr, F_test, fdlr, fdlr.τ, axis=2)
-       
+        
         # println("err_F_real=",maximum(abs.(real.(F_test) - F)))
         # println("err_F_imag=", maximum(abs.(imag.(F_test) )))
         # println("err_F_ratio=",maximum(abs.(real.(F_test) - F)./abs.(F)))
@@ -986,8 +1013,8 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
         # # println("err_F_imag=", maximum(abs.(imag.(F_test) )))
         # # println("err_F_ratio=",maximum(abs.(real.(F_test) - F)./abs.(F)))
         # Δ0_2_new, Δ_2_new = calcΔ(F_2, kernal_2, fdlr2 ,kgrid, qgrids)./(-4*π*π)  
-       
- 
+        
+        
 
 
         # #test interpolation err
@@ -1021,7 +1048,7 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
         lamu2 = dot(Δ_2, Δ_2_new)
         Δ0_2_new=Δ0_2_new+shift*Δ0_2
         Δ_2_new=Δ_2_new+shift*Δ_2
-       
+        
         #modulus = abs(F_new[kf_label,1])
         # err0 = maximum(abs.(abs.(Δ_2_new)-abs.(Δ_2*modulus)))
         # err = maximum(abs.(abs.(Δ0_2_new)-abs.(Δ0_2*modulus)))
@@ -1157,8 +1184,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
         close(f)
     end    
     fdlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
-        #        fdlr = DLR.DLRGrid(:acorr, 1000EF, β, 1e-10)
-        #L_fdlr = Lehmann.DLR.DLRGrid(:acorr, 10EF, β, 1e-10)
+    #        fdlr = DLR.DLRGrid(:acorr, 1000EF, β, 1e-10)
+    #L_fdlr = Lehmann.DLR.DLRGrid(:acorr, 10EF, β, 1e-10)
     println(fdlr.τ)
     fdlr2 = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)
     bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10)
@@ -1184,7 +1211,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     # qgrids2 = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), order÷2, :gaussian) for k in kgrid.grid] # qgrid for each k
     const kF_label = searchsortedfirst(kgrid.grid, kF)
     const qF_label = searchsortedfirst(qgrids[kF_label].grid,kF)
-      
+    
     println("kf_label:$(kF_label), $(kgrid.grid[kF_label])")
     println("$(qF_label), $(qgrids[kF_label].grid[qF_label])")
     println("kgrid number: $(length(kgrid.grid))")

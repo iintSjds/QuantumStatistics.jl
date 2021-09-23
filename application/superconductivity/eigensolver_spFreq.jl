@@ -132,8 +132,9 @@ function calcΔ_freqSep(F_low, F_high, kernel_low, kernel_high, kernel_bare, kgr
     #F_tau = DLR.matfreq2tau(:acorr, F_freq, fdlr, fdlr.τ, axis=2)
     Fl_dlr = DLR.matfreq2dlr(:acorr, F_low, fdlr, axis=2)
     Fh_dlr = DLR.matfreq2dlr(:acorr, F_high, fdlr, axis=2)
-    println("max dlr coef:$(maximum(abs.(real(Fl_dlr)))), $(maximum(abs.(real(Fh_dlr))))")
-    println("max dlr imag:$(maximum(abs.(imag(Fl_dlr)))), $(maximum(abs.(imag(Fh_dlr))))")
+    # println("max F:$(maximum(abs.(real(F_low)))), $(maximum(abs.(real(F_high))))")
+    # println("max dlr coef:$(maximum(abs.(real(Fl_dlr)))), $(maximum(abs.(real(Fh_dlr))))")
+    # println("max dlr imag:$(maximum(abs.(imag(Fl_dlr)))), $(maximum(abs.(imag(Fh_dlr))))")
 
     Δ_freq = zeros(Float64, (length(kgrid.grid), fdlr.size))
 
@@ -209,7 +210,7 @@ function calcΔ_freqFull(F, kernel, kernel_bare, kgrid, qgrids, cm)
     F_dlr = DLR.matfreq2dlr(:acorr, F, fdlr, axis=2)
     Ft = DLR.matfreq2tau(:acorr, F, fdlr, fdlr.τ, axis=2)
 
-    println("max dlr coef:$(maximum(abs.(real(F_dlr))))")
+    # println("max dlr coef:$(maximum(abs.(real(F_dlr))))")
 
     Δ_freq = zeros(Float64, (length(kgrid.grid), fdlr.size))
 
@@ -333,15 +334,15 @@ function Implicit_Renorm_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, f
     
     NN=100000
     rtol=1e-6
-    Looptype=1
+    Looptype=0
     n=0
     err=1.0 
-    accm=0
+    accm=0.0
     shift=5.0
     lamu0=-2.0
     lamu=0.5
-    n_change=2  #steps of power method iteration in one complete loop
-    n_change2=2+2 #total steps of one complete loop
+    n_change=3  #steps of power method iteration in one complete loop
+    n_change2=3+3 #total steps of one complete loop
     delta = Δ
 
     kF_label = searchsortedfirst(kgrid.grid, kF)
@@ -355,44 +356,59 @@ function Implicit_Renorm_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, f
     #Separate Delta
     i_sep = searchsortedfirst(fdlr.ωn, Ω_c)
     d_accm=zeros(Float64, (length(kgrid.grid), fdlr.size))
-    delta_low, delta_high = delta, delta
+    delta_low, delta_high = delta .* 1.0, delta .* 1.0
     F_low = zeros(Float64, (length(kgrid.grid), fdlr.size))
     F_high = zeros(Float64, (length(kgrid.grid), fdlr.size))
 
     while(n<NN && err>rtol)
+        #println(delta_low[kF_label,:])
+        #println(delta_high[kF_label,:])
         F_low=calcF_freqSep(delta_low, Σ, fdlr, kgrid)
         F_high=calcF_freqSep(delta_high, Σ, fdlr, kgrid)
-        #println(F_low[kF_label,:])
-        #println(F_high[kF_label,:])
         
         n=n+1
         delta_new =  calcΔ_freqSep(F_low, F_high, kernel_low, kernel_high, kernel_bare, kgrid, qgrids, cm)./(-4*π*π)
 
-	      if(Looptype==0)
-            accm=accm+1
-            d_accm = d_accm + delta_new
-            delta_high = d_accm ./ accm
-        else
-            lamu = Normalization(delta_low[:, 1], delta_new[:, 1], kgrid, qgrids )
-            delta_new = delta_new+shift*delta_low
-            modulus = Normalization(delta_new[:, 1], delta_new[:, 1], kgrid, qgrids )
-            @assert modulus>0
-            modulus = sqrt(modulus)
-            delta_low = delta_new ./ modulus
-            println(lamu)
-        end
+	      # if(Looptype==0)
+        #     accm=accm+1
+        #     d_accm = d_accm + delta_new
+        #     delta_high = d_accm ./ accm
+        # else
+        #     lamu = Normalization(delta_low[:, 1], delta_new[:, 1], kgrid, qgrids )
+        #     delta_new = delta_new+shift*delta_low
+        #     modulus = Normalization(delta_new[:, 1], delta_new[:, 1], kgrid, qgrids )
+        #     @assert modulus>0
+        #     modulus = sqrt(modulus)
+        #     delta_low = delta_new ./ modulus
+        #     println(lamu)
+        # end
+        # delta = lamu .* Freq_Sep(delta_low, fdlr, i_sep)[1] .+ Freq_Sep(delta_high, fdlr, i_sep)[2]
+        # if(n%n_change2==n_change)
+        #     Looptype=(Looptype+1)%2
+        # elseif(n%n_change2==0)
+        #     accm = 0
+        #     d_accm = d_accm .* 0
+        #     err=abs(lamu-lamu0)
+        #     lamu0=lamu
+        #     #println(lamu)
+        #     Looptype=(Looptype+1)%2
+        # end
+
+        accm=accm * 0.8 + 1.0
+        d_accm = d_accm .* 0.8 .+ delta_new
+        delta_high = d_accm ./ accm
+
+        lamu = Normalization(delta_low[:, 1], delta_new[:, 1], kgrid, qgrids )
+        delta_new = delta_new+shift*delta_low
+        modulus = Normalization(delta_new[:, 1], delta_new[:, 1], kgrid, qgrids )
+        @assert modulus>0
+        modulus = sqrt(modulus)
+        delta_low = delta_new ./ modulus
+        println(lamu)
         delta = lamu .* Freq_Sep(delta_low, fdlr, i_sep)[1] .+ Freq_Sep(delta_high, fdlr, i_sep)[2]
-        if(n%n_change2==n_change)
-            Looptype=(Looptype+1)%2
-        elseif(n%n_change2==0)
-            accm = 0
-            d_accm = d_accm .* 0
-            err=abs(lamu-lamu0)
-            lamu0=lamu
-            #println(lamu)
-            Looptype=(Looptype+1)%2
-        end
-        
+        err=abs(lamu-lamu0)
+        lamu0=lamu
+
     end
 
     outFileName = rundir*"/flow_$(WID).dat"
@@ -409,6 +425,7 @@ end
 function Explicit_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
     
     NN=100000
+    #NN=20
     rtol=1e-6
     Looptype=1
     n=0
@@ -494,12 +511,14 @@ function test_calcΔ(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, b
     F_dlr = DLR.matfreq2dlr(:acorr, F, fdlr, axis=2)
 
     kernel = kernel_sep_full(kernel_freq, cm)
+    kernel_low, kernel_high = kernel_sep(kernel_freq, cm)
     #kernel = DLR.matfreq2dlr(:corr, kernel_freq, bdlr, axis=3)
 
     println(FreqConv.freq_conv(kernel_freq[kF_label,qF_label,:], F[kF_label,:], cm, :full))
     println(real(DLR.tau2matfreq(:acorr, kernel_t[kF_label,qF_label,:] .* Ft[kF_label,:], fdlr, fdlr.n)))
     println(kernel[kF_label,qF_label,:,:]*real(F_dlr[kF_label,:]))
 
+    delta_new3 = calcΔ_freqSep(F, F, kernel_low, kernel_high, kernel_bare, kgrid, qgrids, cm)
     delta_new1 = calcΔ_freqFull(F, kernel, kernel_bare, kgrid, qgrids, cm)
     delta0, delta2 = calcΔ(Ft,  kernel_t, kernel_bare, fdlr, kgrid, qgrids)
     delta_new2 = real(DLR.tau2matfreq(:acorr, delta2, fdlr, fdlr.n, axis=2))
@@ -507,11 +526,126 @@ function test_calcΔ(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, b
         delta_new2[:, ni] += delta0[:]
     end
 
+    println(delta_new3[kF_label,:])
     println(delta_new1[kF_label,:])
     println(delta_new2[kF_label,:])
     println(delta_new1[kF_label,:] ./ delta_new2[kF_label,:])
     return delta, F
 end
+
+function manualΔ_freq(F_low, F_high, kernel_freq, kernel_bare, kgrid, qgrids, cm)
+    """
+        Calculate new Δ with F.
+        Δ = (KP_1)F_1 + (KP_2)F_2
+
+        F and kernel should be in matfreq space(original form) for ASW and CSW calc.
+        return result in matfreq space
+    """
+    fdlr, bdlr = cm.fdlr, cm.bdlr
+    #F_tau = DLR.matfreq2tau(:acorr, F_freq, fdlr, fdlr.τ, axis=2)
+    Fl_dlr = DLR.matfreq2dlr(:acorr, F_low, fdlr, axis=2)
+    Fh_dlr = DLR.matfreq2dlr(:acorr, F_high, fdlr, axis=2)
+    println("max F:$(maximum(abs.(real(F_low)))), $(maximum(abs.(real(F_high))))")
+    println("max dlr coef:$(maximum(abs.(real(Fl_dlr)))), $(maximum(abs.(real(Fh_dlr))))")
+    println("max dlr imag:$(maximum(abs.(imag(Fl_dlr)))), $(maximum(abs.(imag(Fh_dlr))))")
+
+    kernel_t = real(DLR.matfreq2tau(:corr, kernel_freq, bdlr, fdlr.τ, axis=3))
+
+    Δ_freq = zeros(Float64, (length(kgrid.grid), fdlr.size))
+
+    for (ki, k) in enumerate(kgrid.grid)
+        
+        kpidx = 1 # panel index of the kgrid
+        head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+        x = @view kgrid.grid[head:tail]
+        w = @view kgrid.wgrid[head:tail]
+
+        for (qi, q) in enumerate(qgrids[ki].grid)
+            
+            if q > kgrid.panel[kpidx + 1]
+                # if q is larger than the end of the current panel, move k panel to the next panel
+                while q > kgrid.panel[kpidx + 1]
+                    kpidx += 1
+                end
+                head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+                x = @view kgrid.grid[head:tail]
+                w = @view kgrid.wgrid[head:tail]
+                @assert kpidx <= kgrid.Np
+            end
+
+            FFl = zeros(Float64, fdlr.size)
+            FFh = zeros(Float64, fdlr.size)
+            for (mi, m) in enumerate(fdlr.n)
+                fxl = @view F_low[head:tail, mi] # all F in the same kpidx-th K panel
+                FFl[mi] = barycheb(order, q, fxl, w, x) # the interpolation is independent with the panel length
+                fxh = @view F_high[head:tail, mi] # all F in the same kpidx-th K panel
+                FFh[mi] = barycheb(order, q, fxh, w, x) # the interpolation is independent with the panel length
+            end
+            FFl = real(DLR.matfreq2dlr(:acorr, FFl, fdlr, axis=1))
+            FFh = real(DLR.matfreq2dlr(:acorr, FFh, fdlr, axis=1))
+
+            sing_result = 0.0
+            for (ξi, ξ) in enumerate(fdlr.ω)
+                sing_result += FFl[ξi] * cm.asw_low[ξi] + FFh[ξi] * cm.asw_high[ξi]
+            end
+            sing_result = real(sing_result)
+            @assert isfinite(sing_result) "fail to calculate sing_result"
+
+            for (ni, n) in enumerate(fdlr.n)
+
+                conv_result = 0.0
+                for (ξi, ξ) in enumerate(fdlr.ω)
+                    conv_result += kernel_low[ki, qi, ni, ξi] * FFl[ξi] + kernel_high[ki, qi, ni, ξi] * FFh[ξi]
+                end
+                @assert isfinite(conv_result) "fail to calculate conv_result"
+                wq = qgrids[ki].wgrid[qi]
+                #Δ[ki, τi] += dH1(k, q, τ) * FF * wq
+                Δ_freq[ki, ni] += conv_result * wq + sing_result * kernel_bare[ki, qi] * wq
+                @assert isfinite(Δ_freq[ki, ni]) "fail to calculate Δ_freq[ki, ni]=$(Δ_freq[ki, ni]), ki=$(ki), ni=$(ni),qi=$(qi), conv_result=$(conv_result), sing_result=$(sing_result), bare=$(kernel_bare[ki,qi]), wq=$(wq),β=$(β)"
+            end
+        end
+    end
+
+    @assert isfinite(sum(Δ_freq)) "fail to calculate Δ_freq"
+
+    return Δ_freq
+
+end
+
+function test_calcΔ_sep(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+    kF_label = searchsortedfirst(kgrid.grid, kF)
+    qF_label = searchsortedfirst(qgrids[kF_label].grid, kF)
+
+    n_c = Base.floor(Int,Ω_c/(2π)*β)
+    println("Sep:$(Ω_c), n_c:$(n_c)")
+    cm = FreqConv.ConvMat(bdlr, fdlr, n_c)
+
+
+    kernel_t = real(DLR.matfreq2tau(:corr, kernel_freq, bdlr, fdlr.τ, axis=3))
+    kernel_dlr = (DLR.matfreq2dlr(:corr, kernel_freq, bdlr, axis=3))
+    println("compare kernel dlr")
+    println(real(kernel_dlr[qF_label,kF_label,:]))
+    println(real(DLR.matfreq2dlr(:corr, kernel_freq[kF_label,qF_label,:], bdlr, axis=1)))
+    #kernel = zeros(Float64, (size(kernel_freq)[1], size(kernel_freq)[2], fdlr.size, fdlr.size))
+    #kernel_t = 0.0 .* kernel_t
+
+    F = calcF_freqSep(delta, Σ, fdlr, kgrid)
+    Ft = DLR.matfreq2tau(:acorr, F, fdlr, fdlr.τ, axis=2)
+    F_dlr = DLR.matfreq2dlr(:acorr, F, fdlr, axis=2)
+
+    kernel = kernel_sep_full(kernel_freq, cm)
+    kernel_low, kernel_high = kernel_sep(kernel_freq, cm)
+    #kernel = DLR.matfreq2dlr(:corr, kernel_freq, bdlr, axis=3)
+
+    delta_new3 = calcΔ_freqSep(F, F .* 0.0, kernel_low, kernel_high, kernel_bare, kgrid, qgrids, cm)
+    delta_new2 = manualΔ_freq(F, F .* 0.0, kernel_freq , kernel_bare, kgrid, qgrids, cm)
+
+    println(delta_new3[kF_label,:])
+    println(delta_new2[kF_label,:])
+    println(delta_new3[kF_label,:] ./ delta_new2[kF_label,:])
+    return delta, F
+end
+
 
 if abspath(PROGRAM_FILE) == @__FILE__
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
@@ -551,7 +685,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     qgrids_double = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), 2*order, :gaussian) for k in kgrid_double.grid]
     
     #initialize delta
-    delta = delta_init(fdlr, kgrid)#zeros(Float64, (length(kgrid.grid), fdlr.size)) .+ 1.0
+    delta = delta_init(fdlr, kgrid)
+    #delta = zeros(Float64, (length(kgrid.grid), fdlr.size)) .+ 1.0
     delta_0 = zeros(Float64, length(kgrid.grid)) .+ 1.0
 
     # Σ = (0.0+0.0im) * delta
@@ -563,6 +698,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
         if method_type == :explicit
             Δ , F, lamu = Explicit_Freq(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         else
+            #Δ , F, lamu = Explicit_Freq(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
             Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm_Freq(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         end
     else
