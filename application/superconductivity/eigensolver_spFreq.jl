@@ -409,6 +409,13 @@ function Implicit_Renorm_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, f
         err=abs(lamu-lamu0)
         lamu0=lamu
 
+	if (n%20)==10
+	   outFileName = rundir*"/lamu_$(WID).dat"
+   	   f = open(outFileName, "a")
+	   @printf(f, "%32.17g\n", lamu)
+	   close(f)	    
+	end
+
     end
 
     outFileName = rundir*"/flow_$(WID).dat"
@@ -689,9 +696,9 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #delta = zeros(Float64, (length(kgrid.grid), fdlr.size)) .+ 1.0
     delta_0 = zeros(Float64, length(kgrid.grid)) .+ 1.0
 
-    # Σ = (0.0+0.0im) * delta
-    # test_calcΔ(delta, kernel_freq, kernel_bare .* 0.0, Σ, kgrid, qgrids, fdlr, bdlr)
-    # @assert 1==2 "end"
+    #Σ = (0.0+0.0im) * delta
+    #test_calcΔ(delta, kernel_freq, kernel_bare .* 0.0, Σ, kgrid, qgrids, fdlr, bdlr)
+    #@assert 1==2 "end"
 
     if(sigma_type == :none)
         Σ = (0.0+0.0im) * delta
@@ -716,11 +723,11 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     if method_type == :implicit
         Δ_out = lamu .* Δ_final_low .+ Δ_final_high
-        F_τ = DLR.matfreq2dlr(:acorr, F, fdlr, axis=2)
-        F_τ = real.(DLR.dlr2tau(:acorr, F_τ, fdlr, extT_grid.grid , axis=2))
+        #F_τ = DLR.matfreq2dlr(:acorr, F, fdlr, axis=2)
+        #F_τ = real.(DLR.dlr2tau(:acorr, F_τ, fdlr, extT_grid.grid , axis=2))
         #F_τ = real(DLR.matfreq2tau(:acorr, F_freq, fdlr, extT_grid.grid, axis=2))
-        println("F_τ_max:",maximum(F_τ))
-        F_ext = zeros(Float64, (length(extK_grid.grid), length(extT_grid.grid)))
+        #println("F_τ_max:",maximum(F_τ))
+        #F_ext = zeros(Float64, (length(extK_grid.grid), length(extT_grid.grid)))
 
         
         outFileName = rundir*"/delta_$(WID).dat"

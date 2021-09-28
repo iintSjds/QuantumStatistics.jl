@@ -3,12 +3,12 @@ import sys
 import numpy as np
 dup=1
 size0=dup*2
-size=16*size0
+size=8*size0
 print(size)
 beta0=10000
-beta=10000
-r_s=2.0
-channel=-1
+beta=400
+r_s=1.0
+channel=0
 label=0
 mom_sep0 = 0.00005
 mom_sep= 0.0001
@@ -16,16 +16,17 @@ freq_sep = 2.0
 if(len(sys.argv)==2):
         label=int(sys.argv[1])
 for k in range(1,size+1):
+        beta = beta * np.sqrt(2)
         #if(k%dup==1):
         #        beta=beta0
-        r_s=r_s+0.5
+        # r_s=r_s+0.5
                 #mom_sep = mom_sep-0.12
                 #freq_sep = freq_sep /2.0**0.5
         if(k%size0==1):
-                r_s=1.5
+                r_s=1.0
                 #mom_sep = 2.0
                 #freq_sep = 2.0
-                channel=channel+1
+                #channel=channel+1
         fname="parameter.jl"
         myCmd='mkdir {0}'.format(k)
         os.system(myCmd)
@@ -41,7 +42,8 @@ for k in range(1,size+1):
             mass2 = 5.0*channel**(-4)*np.log(channel)
         fo.write(("module parameter\n"+
                 "using StaticArrays, QuantumStatistics\n"+
-                "const sigma_type = :none\n"+
+                "const method_type = :implicit\n"+
+		  "const sigma_type = :none\n"+
                   "const interaction_type = :rpa\n"+
                 "const test_KL = false\n"+
                 "const WID = %d\n"+
@@ -61,7 +63,7 @@ for k in range(1,size+1):
                 "const mass_Pi = 0\n"+
                 "const mom_sep = %.10e\n"+
                 "const mom_sep2 = 1.0\n"+
-                "const freq_sep = 0.0\n"+
+                "const freq_sep = 0.2\n"+
                 "const channel = %d\n"+
                 "const extK_grid = Grid.fermiKUL(kF, 10kF, 0.00001*sqrt(me^2/β/kF^2), 8,8)\n"+
                 "const extT_grid = Grid.tauUL(β, 0.00001, 8,8)\n"+

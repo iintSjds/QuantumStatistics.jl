@@ -5,7 +5,7 @@ using Lehmann
 using LegendrePolynomials
 using Printf
 # using Gaston
-using Plots
+# using Plots
 
 srcdir = "."
 rundir = isempty(ARGS) ? "." : (pwd()*"/"*ARGS[1])
