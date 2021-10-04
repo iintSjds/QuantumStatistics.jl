@@ -62,16 +62,18 @@ function kernel_sep(kernel, cm)
 
     # seems a bug of DLR: exchange axis 1 and 2 after mat2dlr or dlr2mat. mat2tau and reverse is ok.
 
-    kernel_low = zeros(Float64, (size(kernel)[1], size(kernel)[2], fdlr.size, fdlr.size))
-    kernel_high = zeros(Float64, (size(kernel)[1], size(kernel)[2], fdlr.size, fdlr.size))
+    # kernel_low = zeros(Float64, (size(kernel)[1], size(kernel)[2], fdlr.size, fdlr.size))
+    # kernel_high = zeros(Float64, (size(kernel)[1], size(kernel)[2], fdlr.size, fdlr.size))
+    kernel_low = zeros(Float64, (fdlr.size, fdlr.size, size(kernel)[2], size(kernel)[1]))
+    kernel_high = zeros(Float64, (fdlr.size, fdlr.size, size(kernel)[2], size(kernel)[1]))
 
     for ki in 1:size(kernel)[1]
         for qi in 1:size(kernel)[2]
             for ni in 1:fdlr.size
                 for ξi in 1:fdlr.size
                     for mi in 1:bdlr.size
-                        kernel_low[ki, qi, ni, ξi] += kernel_dlr[ki, qi, mi]*low_mat[ni, mi, ξi]
-                        kernel_high[ki, qi, ni, ξi] += kernel_dlr[ki, qi, mi]*high_mat[ni, mi, ξi]
+                        kernel_low[ξi, ni, qi, ki] += kernel_dlr[ki, qi, mi]*low_mat[ni, mi, ξi]
+                        kernel_high[ξi, ni, qi, ki] += kernel_dlr[ki, qi, mi]*high_mat[ni, mi, ξi]
                     end
                 end
             end
@@ -99,14 +101,15 @@ function kernel_sep_full(kernel, cm)
 
     # seems a bug of DLR: exchange axis 1 and 2 after mat2dlr or dlr2mat. mat2tau and reverse is ok.
 
-    kernel_full = zeros(Float64, (size(kernel)[1], size(kernel)[2], fdlr.size, fdlr.size))
+    # kernel_full = zeros(Float64, (size(kernel)[1], size(kernel)[2], fdlr.size, fdlr.size))
+    kernel_full = zeros(Float64, (fdlr.size, fdlr.size, size(kernel)[2], size(kernel)[1]))
 
     for ki in 1:size(kernel)[1]
         for qi in 1:size(kernel)[2]
             for ni in 1:fdlr.size
                 for ξi in 1:fdlr.size
                     for mi in 1:bdlr.size
-                        kernel_full[ki, qi, ni, ξi] += kernel_dlr[ki, qi, mi]*cm.full_mat[ni, mi, ξi]
+                        kernel_full[ξi, ni, qi, ki] += kernel_dlr[ki, qi, mi]*cm.full_mat[ni, mi, ξi]
                     end
                 end
             end
@@ -180,7 +183,7 @@ function calcΔ_freqSep(F_low, F_high, kernel_low, kernel_high, kernel_bare, kgr
 
                 conv_result = 0.0
                 for (ξi, ξ) in enumerate(fdlr.ω)
-                    conv_result += kernel_low[ki, qi, ni, ξi] * FFl[ξi] + kernel_high[ki, qi, ni, ξi] * FFh[ξi]
+                    conv_result += kernel_low[ξi, ni, qi, ki] * FFl[ξi] + kernel_high[ξi, ni, qi, ki] * FFh[ξi]
                 end
                 @assert isfinite(conv_result) "fail to calculate conv_result"
                 wq = qgrids[ki].wgrid[qi]
@@ -257,7 +260,7 @@ function calcΔ_freqFull(F, kernel, kernel_bare, kgrid, qgrids, cm)
 
                 conv_result = 0.0
                 for (ξi, ξ) in enumerate(fdlr.ω)
-                    conv_result += kernel[ki, qi, ni, ξi] * FF[ξi]
+                    conv_result += kernel[ξi, ni, qi, ki] * FF[ξi]
                     # for (ωi, ω) in enumerate(bdlr.ω)
                     #     conv_result += kernel[qi, ki, ωi] * cm.full_mat[ni, ωi, ξi] * FF[ξi]
                     # end
