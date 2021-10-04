@@ -427,6 +427,7 @@ function Implicit_Renorm_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, f
     close(f)
     #F=calcF(delta_0, delta, fdlr, kgrid)
     #delta_0_new, delta_new =  calcΔ(F, kernel, kernel_bare, fdlr , kgrid, qgrids)./(-4*π*π)
+    F = lamu .* Freq_Sep(F_low, fdlr, i_sep)[1] .+ Freq_Sep(F_high, fdlr, i_sep)[2]
 
 
     return delta_low, delta_high, F, lamu

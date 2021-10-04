@@ -2,17 +2,17 @@ import os
 import sys
 import numpy as np
 dup=1
-size0=dup*2
-size=8*size0
+size0=dup*16
+size=4*size0
 print(size)
-beta0=10000
+beta0=400
 beta=400
-r_s=1.0
+r_s=1.75
 channel=0
 label=0
 mom_sep0 = 0.00005
 mom_sep= 0.0001
-freq_sep = 2.0
+freq_sep = 0.2
 if(len(sys.argv)==2):
         label=int(sys.argv[1])
 for k in range(1,size+1):
@@ -23,10 +23,11 @@ for k in range(1,size+1):
                 #mom_sep = mom_sep-0.12
                 #freq_sep = freq_sep /2.0**0.5
         if(k%size0==1):
-                r_s=1.0
+                #r_s=1.0
                 #mom_sep = 2.0
                 #freq_sep = 2.0
-                #channel=channel+1
+                channel=channel+1
+                beta = beta0 * np.sqrt(2)
         fname="parameter.jl"
         myCmd='mkdir {0}'.format(k)
         os.system(myCmd)
