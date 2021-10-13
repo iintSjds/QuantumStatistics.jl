@@ -3,12 +3,12 @@ import sys
 import numpy as np
 dup=1
 size0=dup*16
-size=4*size0
+size=10*size0
 print(size)
 beta0=400
 beta=400
-r_s=1.75
-channel=0
+r_s=0.5
+channel=-1
 label=0
 mom_sep0 = 0.00005
 mom_sep= 0.0001
@@ -44,7 +44,7 @@ for k in range(1,size+1):
         fo.write(("module parameter\n"+
                 "using StaticArrays, QuantumStatistics\n"+
                 "const method_type = :implicit\n"+
-		  "const sigma_type = :none\n"+
+		  "const sigma_type = :g0w0\n"+
                   "const interaction_type = :rpa\n"+
                 "const test_KL = false\n"+
                 "const WID = %d\n"+
@@ -64,7 +64,7 @@ for k in range(1,size+1):
                 "const mass_Pi = 0\n"+
                 "const mom_sep = %.10e\n"+
                 "const mom_sep2 = 1.0\n"+
-                "const freq_sep = 0.2\n"+
+                "const freq_sep = 0.1\n"+
                 "const channel = %d\n"+
                 "const extK_grid = Grid.fermiKUL(kF, 10kF, 0.00001*sqrt(me^2/β/kF^2), 8,8)\n"+
                 "const extT_grid = Grid.tauUL(β, 0.00001, 8,8)\n"+

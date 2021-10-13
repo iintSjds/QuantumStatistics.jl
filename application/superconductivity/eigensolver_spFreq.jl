@@ -409,7 +409,7 @@ function Implicit_Renorm_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, f
         delta_low = delta_new ./ modulus
         println(lamu)
         delta = lamu .* Freq_Sep(delta_low, fdlr, i_sep)[1] .+ Freq_Sep(delta_high, fdlr, i_sep)[2]
-        err=abs(lamu-lamu0)
+        err=abs(lamu-lamu0)/(abs(lamu)+0.001)
         lamu0=lamu
 
 	if (n%20)==10
@@ -666,7 +666,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
         @printf(f, "%.6e\t%.6f\t%.6e\t%d\n", β, rs, mom_sep, channel)
         close(f)
     end    
-    fdlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-8)
+    fdlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
     println(fdlr.τ)
     fdlr2 = DLR.DLRGrid(:acorr, 100EF, β, 1e-8)
     bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10)
