@@ -870,6 +870,87 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
     return delta_0, delta, F, lamu
 end
 
+function delta_init(fdlr, kgrid)
+    Ω_c = freq_sep
+    delta = zeros(Float64, (length(kgrid.grid), fdlr.size)) .+ 1.0
+    for (ki, k) in enumerate(kgrid.grid)
+        for (ni, n) in enumerate(fdlr.n)
+            ω = π*(2*n+1)/β
+            ξ = k^2 - EF
+            delta[ki, ni] = (1.0 - 2.0*ω^2/(ω^2+Ω_c^2)) / (Ω_c^2+ξ^2)
+        end
+    end
+    return delta
+end
+
+function Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
+    NN=10000
+    rtol=1e-6
+    n=0
+    modulus= 1.0
+    err=1.0 
+    shift=5.0
+    lamu0=-2.0
+    lamu0_2= -2.0
+    lamu=0.0
+    lamu2=0.0
+    #delta = zeros(Float64, (length(kgrid.grid), fdlr.size))
+    delta = delta_init(fdlr, kgrid)
+    delta_sum = zeros(Float64, (length(kgrid.grid), fdlr.size))
+    delta = real(DLR.matfreq2tau(:acorr, delta, fdlr, fdlr.τ, axis=2))
+    delta_0 = zeros(Float64, length(kgrid.grid)) .+ 0.0
+    delta_0_sum = zeros(Float64, length(kgrid.grid))
+    delta_0_new=zeros(Float64, length(kgrid.grid))
+    delta_new=zeros(Float64, (length(kgrid.grid), fdlr.size))
+    F = zeros(Float64, (length(kgrid.grid), fdlr.size))
+
+    kF_label = searchsortedfirst(kgrid.grid, kF)
+    ω_c = freq_sep
+
+    therm = 100
+
+    Δ0, Δ0_sum = 1.0, 0.0
+    while(n<NN && err>rtol)
+
+        F=calcF(delta_0 .+ Δ0, delta, Σ, fdlr, kgrid)
+
+        Int_F0=log(ω_c*β)
+        n=n+1
+
+        delta_0_new, delta_new =  calcΔ(F, kernal, kernal_bare, fdlr , kgrid, qgrids)./(-4*π*π)
+        delta_freq = real(DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2))
+
+        Γ0 = (delta_freq[kF_label,1]+delta_0_new[kF_label]) / (Int_F0*Δ0)
+
+        Δ0_sum += 1 + Γ0*Int_F0*Δ0
+        Δ0 = Δ0_sum / n
+
+        delta_sum = delta_sum .+ delta_new
+        delta = delta_sum ./ n
+
+        delta_0_sum = delta_0_sum .+ delta_0_new
+        delta_0 = delta_0_sum ./ n .- (Δ0 - 1.0)
+
+        if n%10 == 0
+            println("Γ0=$(Γ0), Δ0=$(Δ0), 1=$(1/Δ0+Γ0*Int_F0), T_c=$(ω_c*exp(-1/Γ0)), ω_c=$(1/β*exp(1/Γ0-1/Γ0/Δ0))")
+        end
+
+        if n%30 == 0 && therm > 0
+            # reset except delta0 and delta
+            n=0
+            Δ0_sum=0
+            Γ0=0
+            delta_sum = delta_sum .* 0
+            delta_0_sum = delta_0_sum .* 0
+            therm -= 1
+        end
+
+    end
+
+    return delta_0, delta, F
+end
+
+
 function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, fdlr2,  bdlr )
     NN=10000
     rtol=1e-6
@@ -1271,7 +1352,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     if(sigma_type == :none)
         Σ = (0.0+0.0im) * delta
         if method_type == :explicit
-            delta_0, delta, F, lamu = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+            #delta_0, delta, F, lamu = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+            delta_0, delta, F = Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         else
             Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
         end

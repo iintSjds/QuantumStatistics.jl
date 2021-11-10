@@ -170,22 +170,25 @@ end
 
 
 if abspath(PROGRAM_FILE) == @__FILE__
+    using Plots
 
     DecomposedKernel.Parameters.@unpack kF, β, Nk, maxK, minK, order = DecomposedKernel.parameter.Para()
-
     # println(DecomposedKernel.RPA(1.0, 1))
     # println(DecomposedKernel.RPA_mass(1.0, 1))
     # println(DecomposedKernel.KO(1.0, 1))
     # println(DecomposedKernel.KO_mass(1.0, 1))
     kernel = (DecomposedKernel.DCKernel( β, Nk,kF,maxK, minK, order, :none, :rpa))
-    kernel_fine = (DecomposedKernel.DCKernel( 1e6, Nk,kF,maxK, minK, order, :none, :rpa))
-    kernel2 = DecomposedKernel.DCKernel(kernel_fine, β)
+    #kernel_fine = (DecomposedKernel.DCKernel( 1e6, Nk,kF,maxK, minK, order, :none, :rpa))
+    #kernel2 = DecomposedKernel.DCKernel(kernel_fine, β)
     kF_label = searchsortedfirst(kernel.kgrid.grid, kernel.kF)
     qF_label = searchsortedfirst(kernel.qgrids[kF_label].grid, kernel.kF)
-    println(kernel_fine.kernel[kF_label,qF_label,:])
+    #println(kernel_fine.kernel[kF_label,qF_label,:])
     println(kernel.kernel[kF_label,qF_label,:])
-    println(kernel2.kernel[kF_label,qF_label,:])
-    println(maximum(abs.(kernel.kernel-kernel2.kernel)))
-    println(maximum(abs.(kernel.kernel)))
+    #println(kernel2.kernel[kF_label,qF_label,:])
+    #println(maximum(abs.(kernel.kernel-kernel2.kernel)))
+    #println(maximum(abs.(kernel.kernel)))
+    p = plot(kernel.bdlr.ωn[1:8], kernel.kernel[kF_label,qF_label,1:8])
+    display(p)
+    readline()
 
 end

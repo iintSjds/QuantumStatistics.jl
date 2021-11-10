@@ -487,6 +487,93 @@ function Explicit_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bd
     return delta, F, lamu
 end
 
+function Int_F(F, kgrid, qgrids, fdlr)
+    F0 = DLR.dlr2tau(:acorr, F, fdlr, [0.0,], axis=2)[:,1]
+    result = 0.0
+
+    kpidx = 1 # panel index of the kgrid
+    head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+    x = @view kgrid.grid[head:tail]
+    w = @view kgrid.wgrid[head:tail]
+    for (qi, q) in enumerate(qgrids[1].grid)
+        if q > kgrid.panel[kpidx + 1]
+            # if q is larger than the end of the current panel, move k panel to the next panel
+            while q > kgrid.panel[kpidx + 1]
+                kpidx += 1
+            end
+            head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+            x = @view kgrid.grid[head:tail]
+            w = @view kgrid.wgrid[head:tail]
+            @assert kpidx <= kgrid.Np
+        end
+        wq = qgrids[1].wgrid[qi]
+        result += barycheb(order, q, F0[head:tail], w, x) * wq
+    end
+    return result
+end
+
+function Gamma3_Renorm(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+    
+    NN=100000
+    #NN=20
+    rtol=1e-6
+    Looptype=1
+    n=0
+    err=1.0 
+    shift=5.0
+    lamu0=-2.0
+    lamu=0.5
+    delta = Δ .* 1.0
+    delta_sum = Δ .* 0.0
+
+    delta0 = 1.0
+    delta0_sum = 0.0
+
+    kF_label = searchsortedfirst(kgrid.grid, kF)
+
+    n_c = Base.floor(Int,Ω_c/(2π)*β)
+    println("Sep:$(Ω_c), n_c:$(n_c)")
+    cm = FreqConv.ConvMat(bdlr, fdlr, n_c)
+
+    kernel = kernel_sep_full(kernel_freq, cm)
+
+    #Separate Delta
+    F = zeros(Float64, (length(kgrid.grid), fdlr.size))
+
+    ω_c = freq_sep
+
+    while(n<NN && err>rtol)
+        renorm = true
+        if renorm == true
+            F=calcF_freqSep(delta .+ delta0, Σ, fdlr, kgrid)
+            F0=calcF_freqSep(delta .* 0 .+ 1.0, Σ, fdlr, kgrid)
+            Int_F0=log(ω_c*β)#Int_F(F0, kgrid, qgrids, fdlr)
+            n=n+1
+
+            delta_new =  calcΔ_freqFull(F, kernel, kernel_bare, kgrid, qgrids, cm)./(-4*π*π)
+
+            Γ0 = delta_new[kF_label,1] / (Int_F0*delta0)#Int_F(F, kgrid, qgrids, fdlr)
+            delta0_sum += 1 + Γ0*Int_F0*delta0
+            delta0 = delta0_sum / n
+
+            delta_sum = delta_sum .+ delta_new
+            delta = delta_sum ./ n .- (delta0 - 1.0)
+
+            println("Γ0=$(Γ0), Δ0=$(delta0), $(1/delta0+Γ0*Int_F0)")
+        else
+            n=n+1
+            F=calcF_freqSep(delta .+ delta0, Σ, fdlr, kgrid)
+            delta_new =  calcΔ_freqFull(F, kernel, kernel_bare, kgrid, qgrids, cm)./(-4*π*π)
+            delta_sum = delta_sum .+ delta_new
+            delta = delta_sum ./ n .+ 1.0
+
+            println("Delta0=$(delta[kF_label,1])")
+        end
+    end
+
+    return delta, F
+end
+
 
 function delta_init(fdlr, kgrid)
     delta = zeros(Float64, (length(kgrid.grid), fdlr.size)) .+ 1.0
@@ -707,7 +794,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     if(sigma_type == :none)
         Σ = (0.0+0.0im) * delta
         if method_type == :explicit
-            Δ , F, lamu = Explicit_Freq(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+            #Δ , F, lamu = Explicit_Freq(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+            Δ , F, lamu = Gamma3_Renorm(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         else
             #Δ , F, lamu = Explicit_Freq(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
             Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm_Freq(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)

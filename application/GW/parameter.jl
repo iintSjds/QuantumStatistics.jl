@@ -33,9 +33,9 @@ using Parameters
     channel::Int = 0
 
     ### grid  constants ###
-    Nk::Int = 8#8+Int64(floor(log10(β)))
-    order::Int = 4
-    order_int::Int = 8
+    Nk::Int = 6#8+Int64(floor(log10(β)))
+    order::Int = 3
+    order_int::Int = 6
     maxK::Float64 = 10.0 * kF
     minK::Float64 =  0.0001/ (β * kF)
 

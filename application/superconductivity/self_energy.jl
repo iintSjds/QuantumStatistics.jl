@@ -311,12 +311,14 @@ function main_G0W0(EUV,istest=false)
 
     Σ_shift = ΣR[kF_label,ω0_label]+Σ0[kF_label]
     if istest
-        n1, n2 = 31, 30
-        println(fdlr.n)
+        n1, n2 = ω0_label, ω0_label+1
+        println(adlr.n)
         println(Σ0)
         println(ΣR[kF_label,:].+Σ0[kF_label].-Σ_shift)
         println(ΣI[kF_label,:])
         println(Σ[kF_label,:])
+        println(ΣR[kF_label,1],ΣR[kF_label,2])
+        println("Zfactor:",1/(1-(ΣI[kF_label,2]-ΣI[kF_label,1])/2/π*β))
     end
     #     pic1 = plot(fdlr.n[n1:end-n2], ΣR[kF_label,n1:end-n2].+Σ0[kF_label].-Σ_shift)
     #     plot!(pic1,fdlr.n[n1:end-n2], ΣI[kF_label,n1:end-n2])
@@ -477,7 +479,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
         main_GW0(false)
     elseif sigma_type == :g0w0
         # test2 = main_G0W0(10ΣEUV)
-        test1 = main_G0W0(ΣEUV)
+        test1 = main_G0W0(ΣEUV, true)
         # fdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)
         # fdlr2 = DLR.DLRGrid(:fermi, 10ΣEUV, β, 1e-10)
         # kpanel = KPanel(Nk, kF, maxK, minK)
