@@ -885,7 +885,7 @@ end
 
 function Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
     NN=10000
-    rtol=1e-6
+    rtol=1e-7
     n=0
     modulus= 1.0
     err=1.0 
@@ -931,8 +931,18 @@ function Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
         delta_0_sum = delta_0_sum .+ delta_0_new
         delta_0 = delta_0_sum ./ n .- (Δ0 - 1.0)
 
-        if n%10 == 0
+        if n%30 == 0
             println("Γ0=$(Γ0), Δ0=$(Δ0), 1=$(1/Δ0+Γ0*Int_F0), T_c=$(ω_c*exp(-1/Γ0)), ω_c=$(1/β*exp(1/Γ0-1/Γ0/Δ0))")
+            #println("a=$(1-Γ0*log(ω_c)), b=$(-Γ0), a/b=$(1/Γ0-log(ω_c))")
+
+            lamu0=lamu
+            lamu = 1.0-1.0/Δ0
+            err=abs(lamu-lamu0)/(abs(lamu)+1e-9)
+
+	          outFileName = rundir*"/lamu_$(WID).dat"
+   	        f = open(outFileName, "a")
+	          @printf(f, "%32.17g\n", lamu)
+	          close(f)	    
         end
 
         if n%30 == 0 && therm > 0
@@ -947,7 +957,15 @@ function Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
 
     end
 
-    return delta_0, delta, F
+    println(lamu)
+    println(lamu0)
+
+    outFileName = rundir*"/flow_$(WID).dat"
+    f = open(outFileName, "a")
+    @printf(f, "%32.17g\n", lamu)
+    close(f)
+
+    return delta_0, delta, F, lamu
 end
 
 
@@ -1352,8 +1370,9 @@ if abspath(PROGRAM_FILE) == @__FILE__
     if(sigma_type == :none)
         Σ = (0.0+0.0im) * delta
         if method_type == :explicit
-            #delta_0, delta, F, lamu = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
-            delta_0, delta, F = Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+            delta_0, delta, F, lamu = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+        elseif  method_type == :gamma3
+            delta_0, delta, F, lamu = Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         else
             Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
         end
