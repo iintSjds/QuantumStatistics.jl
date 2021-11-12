@@ -996,8 +996,25 @@ function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
 
     Δ0, Δ0_sum = 1.0, 0.0
 
-    halflife = 0.95
+    halflife = 0.90
     fullaccum = 1/(1-halflife)
+
+    # find interp for kF
+    kpidx = 1 # panel index of the kgrid
+    head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+    x = @view kgrid.grid[head:tail]
+    w = @view kgrid.wgrid[head:tail]
+    if kF > kgrid.panel[kpidx + 1]
+        # if q is larger than the end of the current panel, move k panel to the next panel
+        while kF > kgrid.panel[kpidx + 1]
+            kpidx += 1
+        end
+        head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+        x = @view kgrid.grid[head:tail]
+        w = @view kgrid.wgrid[head:tail]
+        @assert kpidx <= kgrid.Np
+    end
+
     while(n<NN && err>rtol)
         n=n+1
         #fullaccum=n
@@ -1007,7 +1024,9 @@ function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
         delta_0_new, delta_new =  calcΔ(F, kernal, kernal_bare, fdlr , kgrid, qgrids)./(-4*π*π)
         delta_freq = real(DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2))
 
-        Δ0_sum = 1 + delta_freq[kF_label,1]+delta_0_new[kF_label] + Δ0_sum * halflife
+        delta_kF = barycheb(order, kF, delta_freq[head:tail, 1] .+ delta_0_new[head:tail], w,x)
+        #delta_kF = delta_freq[kF_label,1]+delta_0_new[kF_label]
+        Δ0_sum = 1 + delta_kF  + Δ0_sum * halflife
         Δ0 = Δ0_sum / fullaccum
 
         delta_sum = delta_sum .* halflife .+ delta_new
@@ -1030,13 +1049,13 @@ function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
         # Δ0 = delta_freq[kF_label,1]+delta_0_new[kF_label]
 
         if n%30 == 0
-            println("Δ0=$(Δ0)")
-
             lamu0=lamu
             lamu = 1.0-1.0/Δ0
             err=abs(lamu-lamu0)/(abs(lamu)+1e-9)
 
-	          outFileName = rundir*"/lamu_$(WID).dat"
+            println("Δ0=$(Δ0), lamu=$(lamu)")
+
+            outFileName = rundir*"/lamu_$(WID).dat"
    	        f = open(outFileName, "a")
 	          @printf(f, "%32.17g\n", lamu)
 	          close(f)	    
