@@ -968,6 +968,93 @@ function Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
     return delta_0, delta, F, lamu
 end
 
+function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
+    NN=10000
+    rtol=1e-7
+    n=0
+    modulus= 1.0
+    err=1.0 
+    shift=5.0
+    lamu0=-2.0
+    lamu0_2= -2.0
+    lamu=0.0
+    lamu2=0.0
+    #delta = zeros(Float64, (length(kgrid.grid), fdlr.size))
+    delta = delta_init(fdlr, kgrid)
+    delta_sum = zeros(Float64, (length(kgrid.grid), fdlr.size))
+    delta = real(DLR.matfreq2tau(:acorr, delta, fdlr, fdlr.τ, axis=2))
+    delta_0 = zeros(Float64, length(kgrid.grid)) .+ 0.0
+    delta_0_sum = zeros(Float64, length(kgrid.grid))
+    delta_0_new=zeros(Float64, length(kgrid.grid))
+    delta_new=zeros(Float64, (length(kgrid.grid), fdlr.size))
+    F = zeros(Float64, (length(kgrid.grid), fdlr.size))
+
+    kF_label = searchsortedfirst(kgrid.grid, kF)
+    ω_c = freq_sep
+
+    therm = 100
+
+    Δ0, Δ0_sum = 1.0, 0.0
+
+    halflife = 0.95
+    fullaccum = 1/(1-halflife)
+    while(n<NN && err>rtol)
+        n=n+1
+        #fullaccum=n
+
+        F=calcF(delta_0 .+ Δ0, delta, Σ, fdlr, kgrid)
+
+        delta_0_new, delta_new =  calcΔ(F, kernal, kernal_bare, fdlr , kgrid, qgrids)./(-4*π*π)
+        delta_freq = real(DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2))
+
+        Δ0_sum = 1 + delta_freq[kF_label,1]+delta_0_new[kF_label] + Δ0_sum * halflife
+        Δ0 = Δ0_sum / fullaccum
+
+        delta_sum = delta_sum .* halflife .+ delta_new
+        delta = delta_sum ./ fullaccum
+
+        delta_0_sum = delta_0_sum .* halflife .+ delta_0_new
+        delta_0 = delta_0_sum ./ fullaccum .- (Δ0 - 1.0)
+
+        # F=calcF(delta_0, delta, Σ, fdlr, kgrid)
+
+        # delta_0_new, delta_new =  calcΔ(F, kernal, kernal_bare, fdlr , kgrid, qgrids)./(-4*π*π)
+        # delta_freq = real(DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2))
+
+        # delta_sum = delta_sum .* halflife .+ delta_new
+        # delta = delta_sum ./ fullaccum
+
+        # delta_0_sum = delta_0_sum .* halflife .+ delta_0_new
+        # delta_0 = delta_0_sum ./ fullaccum
+
+        # Δ0 = delta_freq[kF_label,1]+delta_0_new[kF_label]
+
+        if n%30 == 0
+            println("Δ0=$(Δ0)")
+
+            lamu0=lamu
+            lamu = 1.0-1.0/Δ0
+            err=abs(lamu-lamu0)/(abs(lamu)+1e-9)
+
+	          outFileName = rundir*"/lamu_$(WID).dat"
+   	        f = open(outFileName, "a")
+	          @printf(f, "%32.17g\n", lamu)
+	          close(f)	    
+        end
+
+    end
+
+    println(lamu)
+    println(lamu0)
+
+    outFileName = rundir*"/flow_$(WID).dat"
+    f = open(outFileName, "a")
+    @printf(f, "%32.17g\n", lamu)
+    close(f)
+
+    return delta_0, delta, F, lamu
+end
+
 
 function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, fdlr2,  bdlr )
     NN=10000
@@ -1372,7 +1459,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
         if method_type == :explicit
             delta_0, delta, F, lamu = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         elseif  method_type == :gamma3
-            delta_0, delta, F, lamu = Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+            delta_0, delta, F, lamu = Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         else
             Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
         end
