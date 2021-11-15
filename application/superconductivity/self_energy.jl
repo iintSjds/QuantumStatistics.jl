@@ -99,8 +99,8 @@ function Composite_int_sigma(k, p, n, grid_int)
             legendre_x = sign(legendre_x)*1
         end
         wq = grid_int.wgrid[qi]
-        sum += Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC(q, n) * wq
-        sum_bare += Pl(legendre_x, channel)*4*π*g/q * wq
+        sum += Pl(legendre_x, 0)*4*π*g/q*W_DYNAMIC(q, n) * wq
+        sum_bare += Pl(legendre_x, 0)*4*π*g/q * wq
     end
     return sum_bare, sum
 end
