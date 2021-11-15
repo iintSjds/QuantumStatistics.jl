@@ -7,7 +7,7 @@ size=10*size0
 print(size)
 beta0=400
 beta=400
-r_s=0.5
+r_s=2.0
 channel=-1
 label=0
 mom_sep0 = 0.00005
@@ -44,7 +44,7 @@ for k in range(1,size+1):
         fo.write(("module parameter\n"+
                 "using StaticArrays, QuantumStatistics\n"+
                 "const method_type = :implicit\n"+
-		  "const sigma_type = :g0w0\n"+
+		  "const sigma_type = :gw0\n"+
                   "const interaction_type = :rpa\n"+
                 "const test_KL = false\n"+
                 "const WID = %d\n"+
@@ -59,7 +59,9 @@ for k in range(1,size+1):
                 "const β = %f / kF^2\n"+
                   "const fEUV = 100EF\n"+
                   "const bEUV = 100EF\n"+
-                  "const ΣEUV = 100EF\n"+ 
+                  "const ΣEUV = 100EF\n"+
+                "const ω_D = 0.05EF\n"+
+                "const eph = 0.41\n"+
                 "const mass2 = %f\n"+
                 "const mass_Pi = 0\n"+
                 "const mom_sep = %.10e\n"+

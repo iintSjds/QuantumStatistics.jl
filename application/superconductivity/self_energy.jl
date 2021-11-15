@@ -72,6 +72,11 @@ function KO_sigma(q, n)
     return kernal
 end
 
+function KO_sigma_phonon(q, n)
+    kernal = 0
+    kernal = KO_sigma(q,n) + phonon(q,n)
+    return kernal
+end
 
 function Composite_int_sigma(k, p, n, grid_int)
     sum = 0
@@ -82,6 +87,10 @@ function Composite_int_sigma(k, p, n, grid_int)
         W_DYNAMIC=RPA
     elseif interaction_type==:ko
         W_DYNAMIC=KO_sigma
+    elseif interaction_type==:phonon
+        W_DYNAMIC=phonon
+    elseif interaction_type==:ko_phonon
+        W_DYNAMIC=KO_sigma_phonon
     end
 
     for (qi, q) in enumerate(grid_int.grid)
@@ -134,7 +143,7 @@ function G_τ(ΣR, ΣI, fdlr, kgrid)
     for (ki, k) in enumerate(kgrid.grid)
         for (ωni, ωn) in enumerate(fdlr.ωn)
             ω = k^2 / (2me) - EF
-            G[ki,ωni] = 1/( im*ωn -ω + ΣR[ki,ωni] + im*ΣI[ki,ωni] )
+            G[ki,ωni] = -1/( im*ωn -ω - ΣR[ki,ωni] - im*ΣI[ki,ωni] )
         end
     end
 
@@ -310,6 +319,9 @@ function main_G0W0(EUV,istest=false)
     ΣI = imag(Σ_freq)
 
     Σ_shift = ΣR[kF_label,ω0_label]+Σ0[kF_label]
+    println(ΣR[kF_label,:].+Σ0[kF_label].-Σ_shift)
+    println(ΣI[kF_label,:])
+    println(Σ[kF_label,:])
     if istest
         n1, n2 = 31, 30
         println(fdlr.n)
@@ -352,6 +364,7 @@ function main_GW0(istest=false)
     println(G0_τ(1.0, EPS), "\t", G0_τ(1.0, -EPS))
     fdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)
     bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10)
+    adlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
 
     kpanel = KPanel(Nk, kF, maxK, minK)
     kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
@@ -361,6 +374,7 @@ function main_GW0(istest=false)
     # qgrids2 = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), order÷2, :gaussian) for k in kgrid.grid] # qgrid for each k
     kF_label = searchsortedfirst(kgrid.grid, kF)
     ω0_label = searchsortedfirst(fdlr.n, 0)
+    ω0_a_label = 1
     println("kf_label:$(kF_label), $(kgrid.grid[kF_label])")
     println("kgrid number: $(length(kgrid.grid))")
     println("max qgrid number: ", maximum([length(q.grid) for q in qgrids]))
@@ -383,6 +397,7 @@ function main_GW0(istest=false)
         Σ_freq = DLR.tau2matfreq(:fermi, Σ, fdlr, fdlr.n, axis=2)
         ΣR = real(Σ_freq)
         ΣI = imag(Σ_freq)
+        
         if istest
             Σ_tau_compare = DLR.matfreq2tau(:fermi, Σ_freq, fdlr, fdlr.τ, axis=2)
             Σ_freq_compare = DLR.tau2matfreq(:fermi, Σ_tau_compare, fdlr, fdlr.n, axis=2)
@@ -402,7 +417,16 @@ function main_GW0(istest=false)
         end
         Σ_shift_old = Σ_shift
     end
-
+    
+    Σ_freq = DLR.tau2matfreq(:fermi, Σ, fdlr, adlr.n, axis=2)
+    ΣR = real(Σ_freq)
+    ΣI = imag(Σ_freq)
+    Σ_shift = ΣR[kF_label,ω0_a_label]+real(Σ0)[kF_label]
+    ΣR = broadcast(+, real(Σ0) .- Σ_shift, ΣR)
+    ΣI = broadcast(+, imag(Σ0), ΣI)
+    println(fdlr.n)
+    println(ΣR[kF_label,:])
+    println(ΣI[kF_label,:])
     if istest
         n1, n2 = 31, 30
         println(fdlr.n)
@@ -425,11 +449,11 @@ function main_GW0(istest=false)
 
     end
 
-
+   
     outFileName = rundir*"/sigma_$(WID).dat"
     f = open(outFileName, "w")
     for (ki, k) in enumerate(kgrid.grid)
-        for (ni, n) in enumerate(fdlr.τ)
+        for (ni, n) in enumerate(adlr.n)
             @printf(f, "%32.17g\t%32.17g\n", ΣR[ki,ni], ΣI[ki,ni])
         end
     end
