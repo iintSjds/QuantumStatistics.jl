@@ -9,7 +9,7 @@ using LinearAlgebra
 using DelimitedFiles
 using Printf
 #using Gaston
-#using Plots
+using Plots
 using Statistics
 
 srcdir = "."
@@ -604,17 +604,17 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
     #kernal_double = dH1_tau(kgrid_double, qgrids_double, fdlr)
     #kernal_2 = dH1_tau(kgrid, qgrids, fdlr2)
     delta = zeros(Float64, (length(kgrid.grid), fdlr.size))
-    # for (ki, k) in enumerate(kgrid.grid)
-    #     ω = k^2 / (2me) - EF
-    #     for (ni, n) in enumerate(fdlr.n)
-    #         np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
-    #         nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
-    #         # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-    #         delta[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-    #     end
-    # end
+    for (ki, k) in enumerate(kgrid.grid)
+        ω = k^2 / (2me) - EF
+        for (ni, n) in enumerate(fdlr.n)
+            np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
+            nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
+            # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+            delta[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+        end
+    end
     delta = real(DLR.matfreq2tau(:acorr, delta, fdlr, fdlr.τ, axis=2))
-    delta_0 = zeros(Float64, length(kgrid.grid)) .+ 1.0
+    delta_0 = zeros(Float64, length(kgrid.grid)) .+ 0.5
     delta_0_new=zeros(Float64, length(kgrid.grid))
     delta_new=zeros(Float64, (length(kgrid.grid), fdlr.size))
     F = zeros(Float64, (length(kgrid.grid), fdlr.size))
@@ -1291,8 +1291,15 @@ if abspath(PROGRAM_FILE) == @__FILE__
             Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
         end
     end
-
-
+    const ω_label = searchsortedfirst(fdlr.ωn, 2*ω_D)
+    println(delta_0)
+    println(sum(kernal_bare))
+    Δ_freq= real(DLR.tau2matfreq(:acorr, delta, fdlr, fdlr.n, axis=2))
+    pic=plot(fdlr.ωn[1:ω_label], Δ_freq[3,1:ω_label]/kgrid.grid[3])
+    plot!(pic,fdlr.ωn[1:ω_label], Δ_freq[kF_label,1:ω_label]/kgrid.grid[kF_label])
+    plot!(pic,fdlr.ωn[1:ω_label], Δ_freq[end,1:ω_label]/kgrid.grid[end])    
+    display(pic)
+    readline()
     # L_delta = zeros(Float64, (length(kgrid.grid), L_fdlr.size))
     # # for (ki, k) in enumerate(kgrid.grid)
     # #     ω = k^2 / (2me) - EF

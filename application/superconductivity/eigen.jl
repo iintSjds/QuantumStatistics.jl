@@ -153,35 +153,33 @@ function Composite_int(k, p, n, grid_int, β=β)
     sum = 0
     sum_bare = 0
     g = e0^2
-
     if interaction_type==:rpa
         W_DYNAMIC=RPA
         W_DYNAMIC_MASS=RPA_mass
     elseif interaction_type==:ko
         W_DYNAMIC=KO
         W_DYNAMIC_MASS=KO_mass
-    elseif interaction_type==:phonon
-        W_DYNAMIC=phonon
-        W_DYNAMIC_MASS=KO_mass
-    elseif interaction_type==:ko_phonon
-        W_DYNAMIC=KO_phonon
-        W_DYNAMIC_MASS=KO_mass
     end
-
+ 
     for (qi, q) in enumerate(grid_int.grid)
         legendre_x = (k^2 + p^2 - q^2)/2/k/p
         if(abs(abs(legendre_x)-1)<1e-12)
             legendre_x = sign(legendre_x)*1
         end
         wq = grid_int.wgrid[qi]
-        sum += Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC(q, n) * wq
-        if(test_KL == true)
-            sum += -Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC_MASS(q, n) * wq            
+        if if_electron == 1
+            sum += Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC(q, n) * wq
+            if(test_KL == true)
+                sum += -Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC_MASS(q, n) * wq            
+            end
+            #sum += Pl(legendre_x, channel)*4*π*g/q*KO(q, n) * wq        
+            #sum += q*Pl(legendre_x, channel)*FT_RPA(q, n) * wq
+            #sum += q*Pl(legendre_x, channel)*dH1_bose(q, n) * wq
+            sum_bare += Pl(legendre_x, channel)*4*π*g/q * wq
         end
-        #sum += Pl(legendre_x, channel)*4*π*g/q*KO(q, n) * wq        
-        #sum += q*Pl(legendre_x, channel)*FT_RPA(q, n) * wq
-        #sum += q*Pl(legendre_x, channel)*dH1_bose(q, n) * wq
-        sum_bare += Pl(legendre_x, channel)*4*π*g/q * wq
+        if if_phonon == 1
+            sum += Pl(legendre_x, channel)*q*phonon(q, n) * wq
+        end    
     end
     return sum_bare, sum
 end
@@ -365,6 +363,7 @@ function calcF(Δ0, Δ, Σ, fdlr, k::CompositeGrid)
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             #F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, Σ[ki,ni], β) * Spectral.kernelFermiΩ(np, ω, Σ[ki,ni], β)
+            #F[ki, ni] = (Δ[ki, ni]) /(((2*np+1)*π/β-imag(Σ[ki,ni]))^2 + (ω + real(Σ[ki,ni]))^2)
             F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) /(((2*np+1)*π/β-imag(Σ[ki,ni]))^2 + (ω + real(Σ[ki,ni]))^2)
             #F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
            
@@ -702,17 +701,9 @@ function phonon(q,n)
     γ = 1/kF^2
     ω_q = β_freq*q^2/(1 + γ*q^2)
     kernal =  - α/(1 + (q/kF)^2) * ω_q^2/(ω^2 + ω_q^2)
+    #kernal = -α*ω_D^2/(ω^2+ω_D^2) 
     return kernal
 end
-
-
-function KO_phonon(q, n)
-    kernal = 0
-    kernal = KO(q,n) + phonon(q,n)
-    return kernal
-end
-
-
 
 
 function KO_mass(q, n)

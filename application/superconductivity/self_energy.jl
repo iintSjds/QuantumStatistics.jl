@@ -72,11 +72,6 @@ function KO_sigma(q, n)
     return kernal
 end
 
-function KO_sigma_phonon(q, n)
-    kernal = 0
-    kernal = KO_sigma(q,n) + phonon(q,n)
-    return kernal
-end
 
 function Composite_int_sigma(k, p, n, grid_int)
     sum = 0
@@ -87,10 +82,6 @@ function Composite_int_sigma(k, p, n, grid_int)
         W_DYNAMIC=RPA
     elseif interaction_type==:ko
         W_DYNAMIC=KO_sigma
-    elseif interaction_type==:phonon
-        W_DYNAMIC=phonon
-    elseif interaction_type==:ko_phonon
-        W_DYNAMIC=KO_sigma_phonon
     end
 
     for (qi, q) in enumerate(grid_int.grid)
@@ -99,8 +90,13 @@ function Composite_int_sigma(k, p, n, grid_int)
             legendre_x = sign(legendre_x)*1
         end
         wq = grid_int.wgrid[qi]
-        sum += Pl(legendre_x, 0)*4*π*g/q*W_DYNAMIC(q, n) * wq
-        sum_bare += Pl(legendre_x, 0)*4*π*g/q * wq
+        if if_electron == 1
+            sum += Pl(legendre_x, 0)*4*π*g/q*W_DYNAMIC(q, n) * wq
+            sum_bare += Pl(legendre_x, 0)*4*π*g/q * wq
+        end
+        if if_phonon == 1
+            sum += Pl(legendre_x, 0)*q*phonon(q, n) * wq
+        end
     end
     return sum_bare, sum
 end
@@ -365,7 +361,7 @@ function main_GW0(istest=false)
     fdlr = DLR.DLRGrid(:fermi, ΣEUV, β, 1e-10)
     bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10)
     adlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
-
+    println(fdlr.n)    
     kpanel = KPanel(Nk, kF, maxK, minK)
     kpanel_bose = KPanel(2Nk, 2*kF, 2.1*maxK, minK/100.0)
     kgrid = CompositeGrid(kpanel, order, :cheb)
@@ -374,6 +370,7 @@ function main_GW0(istest=false)
     # qgrids2 = [CompositeGrid(QPanel(Nk, kF, maxK, minK, k), order÷2, :gaussian) for k in kgrid.grid] # qgrid for each k
     kF_label = searchsortedfirst(kgrid.grid, kF)
     ω0_label = searchsortedfirst(fdlr.n, 0)
+    println(fdlr.n[ω0_label])
     ω0_a_label = 1
     println("kf_label:$(kF_label), $(kgrid.grid[kF_label])")
     println("kgrid number: $(length(kgrid.grid))")
@@ -391,13 +388,17 @@ function main_GW0(istest=false)
     ΣR = broadcast(+, real(Σ0) .- Σ_shift, ΣR)
     ΣI = broadcast(+, imag(Σ0), ΣI)
     Σ_shift_old = Σ_shift
-    for i in 1:100
+    n1 = ω0_label-24
+    n2 = ω0_label+23
+    for i in 1:1000
         Gt = G_τ(ΣR, ΣI, fdlr, kgrid)
         Σ0, Σ = calcΣ(Gt, kernal, kernal_bare, fdlr, kgrid, qgrids)
         Σ_freq = DLR.tau2matfreq(:fermi, Σ, fdlr, fdlr.n, axis=2)
         ΣR = real(Σ_freq)
         ΣI = imag(Σ_freq)
-        
+        println(fdlr.n[n1],"\t",fdlr.n[n2])
+        println(ΣR[kF_label,n1],"\t",ΣR[kF_label,n2])
+        println(ΣI[kF_label,n1],"\t",ΣI[kF_label,n2])
         if istest
             Σ_tau_compare = DLR.matfreq2tau(:fermi, Σ_freq, fdlr, fdlr.τ, axis=2)
             Σ_freq_compare = DLR.tau2matfreq(:fermi, Σ_tau_compare, fdlr, fdlr.n, axis=2)
@@ -424,7 +425,6 @@ function main_GW0(istest=false)
     Σ_shift = ΣR[kF_label,ω0_a_label]+real(Σ0)[kF_label]
     ΣR = broadcast(+, real(Σ0) .- Σ_shift, ΣR)
     ΣI = broadcast(+, imag(Σ0), ΣI)
-    println(fdlr.n)
     println(ΣR[kF_label,:])
     println(ΣI[kF_label,:])
     if istest
