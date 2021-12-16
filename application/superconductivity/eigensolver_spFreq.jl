@@ -117,11 +117,10 @@ function kernel_sep_full(kernel, cm)
         println("$(ki)/$(size(kernel)[1])")
     end
 
-    println("$(kernel_full[1,1,:,1])")
+    #println("$(kernel_full[1,1,:,1])")
     println("kernel sep end")
     return kernel_full
 end
-
 
 function calcΔ_freqSep(F_low, F_high, kernel_low, kernel_high, kernel_bare, kgrid, qgrids, cm)
     """
@@ -433,6 +432,101 @@ function Implicit_Renorm_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, f
     return delta_low, delta_high, F, lamu
 end
 
+function check_GGGG(kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+
+    NN=100000
+    #NN=20
+    rtol=1e-6
+    Looptype=1
+    n=0
+    err=1.0 
+    shift=5.0
+    lamu0=-2.0
+    lamu=0.5
+
+    kF_label = searchsortedfirst(kgrid.grid, kF)
+    n_c = Base.floor(Int,Ω_c/(2π)*β)
+    println("Sep:$(Ω_c), n_c:$(n_c)")
+    cm = FreqConv.ConvMat(bdlr, fdlr, n_c)
+
+    kernel_dyn = kernel_freq .^ 2 .+ 2 .* kernel_freq .* kernel_bare
+    kernel = kernel_sep_full(kernel_dyn, cm)
+    kernel_bare = kernel_bare .^ 2
+
+    F = ones(Float64, (length(kgrid.grid), fdlr.size))
+    F = calcF_freqSep(F, Σ, fdlr, kgrid)
+
+    results, resultd = 0.0, 0.0
+
+    F_dlr = DLR.matfreq2dlr(:acorr, F, fdlr, axis=2)
+    Ft = DLR.matfreq2tau(:acorr, F, fdlr, fdlr.τ, axis=2)
+
+    # println("max dlr coef:$(maximum(abs.(real(F_dlr))))")
+
+    Δ_freq = zeros(Float64, (length(kgrid.grid), fdlr.size))
+
+    ki, k = kF_label, kgrid.grid[kF_label]
+    kpidx = 1 # panel index of the kgrid
+    head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+    x = @view kgrid.grid[head:tail]
+    w = @view kgrid.wgrid[head:tail]
+
+    for (qi, q) in enumerate(qgrids[ki].grid)
+        
+        if q > kgrid.panel[kpidx + 1]
+            # if q is larger than the end of the current panel, move k panel to the next panel
+            while q > kgrid.panel[kpidx + 1]
+                kpidx += 1
+            end
+            head, tail = idx(kpidx, 1, order), idx(kpidx, order, order) 
+            x = @view kgrid.grid[head:tail]
+            w = @view kgrid.wgrid[head:tail]
+            @assert kpidx <= kgrid.Np
+        end
+
+        FF = zeros(Float64, fdlr.size)
+        # for (mi, m) in enumerate(fdlr.n)
+        #     fx = @view F[head:tail, mi] # all F in the same kpidx-th K panel
+        #     FF[mi] = barycheb(order, q, fx, w, x) # the interpolation is independent with the panel length
+        # end
+        # FF = real(DLR.matfreq2dlr(:acorr, FF, fdlr, axis=1))
+        for (ti, t) in enumerate(fdlr.τ)
+            fx = @view Ft[head:tail, ti] # all F in the same kpidx-th K panel
+            FF[ti] = barycheb(order, q, fx, w, x) # the interpolation is independent with the panel length
+        end
+        FF = real(DLR.tau2dlr(:acorr, FF, fdlr, axis=1))
+
+        sing_result = 0.0
+        for (ξi, ξ) in enumerate(fdlr.ω)
+            sing_result += FF[ξi] * cm.asw_full[ξi]
+        end
+        sing_result = real(sing_result)
+        @assert isfinite(sing_result) "fail to calculate sing_result"
+
+        ni, n = 1, fdlr.n[1]
+        conv_result = 0.0
+        for (ξi, ξ) in enumerate(fdlr.ω)
+            conv_result += kernel[ξi, ni, qi, ki] * FF[ξi]
+            # for (ωi, ω) in enumerate(bdlr.ω)
+            #     conv_result += kernel[qi, ki, ωi] * cm.full_mat[ni, ωi, ξi] * FF[ξi]
+            # end
+        end
+        # if ki == 56 && qi == 58
+        #     println("conv_result:$(conv_result)")
+        #     println("sing_result:$(sing_result)")
+        #     #println("kernel_bare:$(kernel_bare[ki,qi])")
+        # end
+        @assert isfinite(conv_result) "fail to calculate conv_result"
+        wq = qgrids[ki].wgrid[qi]
+        #Δ[ki, τi] += dH1(k, q, τ) * FF * wq
+        results += sing_result * kernel_bare[ki, qi] * wq * q^2
+        resultd += conv_result * wq + sing_result * kernel_bare[ki, qi] * wq * q^2
+        @assert isfinite(Δ_freq[ki, ni]) "fail to calculate Δ_freq[ki, ni]=$(Δ_freq[ki, ni]), ki=$(ki), ni=$(ni),qi=$(qi), conv_result=$(conv_result), sing_result=$(sing_result), bare=$(kernel_bare[ki,qi]), wq=$(wq),β=$(β)"
+    end
+
+    return results, resultd
+end
+
 function Explicit_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
     
     NN=100000
@@ -486,6 +580,7 @@ function Explicit_Freq(Δ, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bd
 
     return delta, F, lamu
 end
+
 
 function Int_F(F, kgrid, qgrids, fdlr)
     F0 = DLR.dlr2tau(:acorr, F, fdlr, [0.0,], axis=2)[:,1]
@@ -744,6 +839,33 @@ function test_calcΔ_sep(delta, kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdl
     return delta, F
 end
 
+function yukawa_Sigma_test(fdlr, kgrid)
+    g = 3.05692#e0^2/π
+    z = 0.30825153
+    λ = 1.0
+    Σ = zeros(ComplexF64 , (length(kgrid.grid), fdlr.size))
+
+    Z0 = 1.0
+    meff = 0.5
+
+    for (ki, k) in enumerate(kgrid.grid)
+        for (ni, n) in enumerate(fdlr.n)
+            Σ[ki, ni] = -g*kF*(1 + λ/kF*atan((k-kF)/λ) - λ/kF*atan((k+kF)/λ)- (λ^2-k^2+kF^2)/(4*k*kF)*log( (λ^2+(k-kF)^2)/(λ^2+(k+kF)^2) )) - im*z*atan(2*π*(n+0.5)/β)
+        end
+    end
+    Σ0 = -g*kF*(1 - λ/kF*atan((2*kF)/λ)- (λ^2)/(4*kF*kF)*log( (λ^2)/(λ^2+4*(kF)^2) ))
+
+    Z0 = 1/(1+z)
+    meff = 1.0/(g*kF*((λ^2+2*kF^2)/4/kF^2*log((λ^2+4*kF^2)/λ^2) - 1.0)+2.0)/Z0
+
+    outFileName = rundir*"/sigmainfo_$(WID).dat"
+    println(outFileName)
+    f = open(outFileName, "w")
+    @printf(f, "%32.17g\n",Z0)
+    @printf(f, "%32.17g\n",meff)
+
+    return Σ .- Σ0
+end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     println("rs=$rs, β=$β, kF=$kF, EF=$EF, mass2=$mass2")
@@ -770,7 +892,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     println("kgrid number: $(length(kgrid.grid))")
     println("max qgrid number: ", maximum([length(q.grid) for q in qgrids]))
 
-    kernel_bare, kernel_freq = legendre_dc(bdlr, kgrid, qgrids, kpanel_bose, order_int)
+    kernel_bare, kernel_freq = legendre_dc_yukawa(bdlr, kgrid, qgrids, kpanel_bose, order_int)
+    #kernel_bare, kernel_freq = legendre_dc(bdlr, kgrid, qgrids, kpanel_bose, order_int)
     #kernel_bare = kernel_bare .* 0.0
     println(kernel_freq[kF_label,qF_label,:])
 
@@ -787,9 +910,34 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #delta = zeros(Float64, (length(kgrid.grid), fdlr.size)) .+ 1.0
     delta_0 = zeros(Float64, length(kgrid.grid)) .+ 1.0
 
-    #Σ = (0.0+0.0im) * delta
+    Σ = (0.0+0.0im) * delta
+    if(sigma_type == :none)
+        Σ = (0.0+0.0im) * delta
+    else
+        w0_label = 0
+        dataFileName = rundir*"/sigma_$(WID).dat"
+        f = open(dataFileName, "r")
+        Σ_raw = readdlm(f)
+        Σ  = transpose(reshape(Σ_raw[:,1],(fdlr.size,length(kgrid.grid)))) + transpose(reshape(Σ_raw[:,2],(fdlr.size,length(kgrid.grid))))*im
+    end
+    Σ = yukawa_Sigma_test(fdlr, kgrid)
     #test_calcΔ(delta, kernel_freq, kernel_bare .* 0.0, Σ, kgrid, qgrids, fdlr, bdlr)
     #@assert 1==2 "end"
+    G4s, G4d = check_GGGG(kernel_freq, kernel_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+    println("static GGGG=",G4s)
+    println("dynamic GGGG=",G4d)
+    println("Gamma(kF,kF,0)=",kernel_freq[kF_label,qF_label,1]+kernel_bare[kF_label,qF_label])
+    println("Gamma0(kF,kF,0)=",kernel_bare[kF_label,qF_label])
+
+	  outFileName = rundir*"/gggg_$(WID).dat"
+   	f = open(outFileName, "a")
+	  @printf(f, "%32.17g\n", kernel_bare[kF_label,qF_label])
+    @printf(f, "%32.17g\n", kernel_freq[kF_label,qF_label,1]+kernel_bare[kF_label,qF_label])
+    @printf(f, "%32.17g\n", G4s)
+    @printf(f, "%32.17g\n", G4d)
+	  close(f)	    
+
+    @assert 1==2 "end"
 
     if(sigma_type == :none)
         Σ = (0.0+0.0im) * delta

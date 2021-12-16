@@ -968,7 +968,7 @@ function Gamma3_Renorm(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
     return delta_0, delta, F, lamu
 end
 
-function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
+function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr, KKF0 )
     NN=10000
     rtol=1e-7
     n=0
@@ -990,6 +990,7 @@ function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
     F = zeros(Float64, (length(kgrid.grid), fdlr.size))
 
     kF_label = searchsortedfirst(kgrid.grid, kF)
+    qF_label = searchsortedfirst(qgrids[kF_label].grid, kF)
     ω_c = freq_sep
 
     therm = 100
@@ -998,6 +999,8 @@ function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
 
     halflife = 0.90
     fullaccum = 1/(1-halflife)
+
+    ΔH = 0.0
 
     # find interp for kF
     kpidx = 1 # panel index of the kgrid
@@ -1023,6 +1026,7 @@ function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
 
         delta_0_new, delta_new =  calcΔ(F, kernal, kernal_bare, fdlr , kgrid, qgrids)./(-4*π*π)
         delta_freq = real(DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2))
+        #delta_freq = real(DLR.tau2matfreq(:acorr, delta_new, fdlr, [-0.5], axis=2))
 
         delta_kF = barycheb(order, kF, delta_freq[head:tail, 1] .+ delta_0_new[head:tail], w,x)
         #delta_kF = delta_freq[kF_label,1]+delta_0_new[kF_label]
@@ -1032,8 +1036,10 @@ function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
         delta_sum = delta_sum .* halflife .+ delta_new
         delta = delta_sum ./ fullaccum
 
-        delta_0_sum = delta_0_sum .* halflife .+ delta_0_new
-        delta_0 = delta_0_sum ./ fullaccum .- (Δ0 - 1.0)
+        delta_0_sum = delta_0_sum .* halflife .+ (delta_0_new .- delta_kF)
+        delta_0 = delta_0_sum ./ fullaccum
+        # delta_0_sum = delta_0_sum .* halflife .+ delta_0_new
+        # delta_0 = delta_0_sum ./ fullaccum .- (Δ0 - 1.0)
 
         # F=calcF(delta_0, delta, Σ, fdlr, kgrid)
 
@@ -1053,7 +1059,9 @@ function Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
             lamu = 1.0-1.0/Δ0
             err=abs(lamu-lamu0)/(abs(lamu)+1e-9)
 
-            println("Δ0=$(Δ0), lamu=$(lamu)")
+            #coef = delta_kF / KKF0 / (delta_0[kF_label]+Δ0+delta_freq[kF_label,1])
+
+            println("Δ0=$(Δ0), lamu=$(lamu)")#, coef=$(coef), invKKF0=$(1/KKF0)")
 
             outFileName = rundir*"/lamu_$(WID).dat"
    	        f = open(outFileName, "a")
@@ -1440,7 +1448,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #println(maximum(abs.(L_kernal-L_kernal_test)))
     # pic = plot(bdlr.n, kernal_freq[kF_label,qF_label,:])
     # pic = plot!(bdlr.n, kernal_freq_test[kF_label,qF_label,:])
-    
+
     # display(pic)
     # readline()
     # println(maximum(abs.(kernal_freq_test-kernal_freq)))
@@ -1472,13 +1480,13 @@ if abspath(PROGRAM_FILE) == @__FILE__
     delta_0 = zeros(Float64, length(kgrid.grid)) .+ 1.0 
 
 
-
     if(sigma_type == :none)
         Σ = (0.0+0.0im) * delta
         if method_type == :explicit
             delta_0, delta, F, lamu = Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
         elseif  method_type == :gamma3
-            delta_0, delta, F, lamu = Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr)
+            kernelkF0 = kernal_bare[kF_label,qF_label]+kernal_freq[kF_label,qF_label,1]
+            delta_0, delta, F, lamu = Gamma3_Renorm_Simp(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr, kernelkF0)
         else
             Δ0_final_low,Δ0_final_high, Δ_final_low, Δ_final_high,  F, lamu = Implicit_Renorm(delta, delta_0, kernal, kernal_bare, Σ, kgrid, qgrids, fdlr)
         end

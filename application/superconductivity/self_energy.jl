@@ -2,7 +2,7 @@ using StaticArrays:similar, maximum
 using QuantumStatistics: Grid, FastMath, Utility
 using Lehmann
 using Printf
-#using Plots
+# using Plots
 using DelimitedFiles
 #using LaTeXStrings
 
@@ -318,7 +318,22 @@ function main_G0W0(EUV,istest=false)
         println(ΣI[kF_label,:])
         println(Σ[kF_label,:])
         println(ΣR[kF_label,1],ΣR[kF_label,2])
-        println("Zfactor:",1/(1-(ΣI[kF_label,2]-ΣI[kF_label,1])/2/π*β))
+
+        n1, n2 = -60,-1
+        #println((ΣR[kF_label+n1:kF_label+n2,1] .+ Σ0[kF_label+n1:kF_label+n2] .- ΣR[kF_label,1] .- Σ0[kF_label]) ./ ( kgrid.grid[kF_label+n1:kF_label+n2] .- kgrid.grid[kF_label]))
+        dSdk = [(ΣR[kF_label+n,1] .+ Σ0[kF_label+n] .- ΣR[kF_label-n,1] .- Σ0[kF_label-n]) ./ ( kgrid.grid[kF_label+n] .- kgrid.grid[kF_label-n]) for n in 1:30]
+        println(dSdk)
+        ndiff = 1
+        Z0 = 1/(1-(ΣI[kF_label,2]-ΣI[kF_label,1])/2/π*β)
+        meff = 1/ (Z0*(2+dSdk[10]) )
+        println("Zfactor:",Z0)
+        println("m*:", meff)
+
+        outFileName = rundir*"/sigmainfo_$(WID).dat"
+        println(outFileName)
+        f = open(outFileName, "w")
+        @printf(f, "%32.17g\n",Z0)
+        @printf(f, "%32.17g\n",meff)
     end
     #     pic1 = plot(fdlr.n[n1:end-n2], ΣR[kF_label,n1:end-n2].+Σ0[kF_label].-Σ_shift)
     #     plot!(pic1,fdlr.n[n1:end-n2], ΣI[kF_label,n1:end-n2])

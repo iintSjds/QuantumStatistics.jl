@@ -121,6 +121,27 @@ function legendre_dc(bdlr, kgrid, qgrids, kpanel_bose, int_order)
     return kernal_bare,  kernal
 end
 
+function legendre_dc_yukawa(bdlr, kgrid, qgrids, kpanel_bose, int_order)
+    kernal_bare = zeros(Float64, (length(kgrid.grid), length(qgrids[1].grid)))
+    kernal = zeros(Float64, (length(kgrid.grid), length(qgrids[1].grid), bdlr.size))
+    for (ki, k) in enumerate(kgrid.grid)
+        for (pi, p) in enumerate(qgrids[ki].grid)
+            for (ni, n) in enumerate(bdlr.n)
+                if abs(k - p) > EPS
+                    grid_int = build_int(k, p ,kpanel_bose, int_order)
+                    kernal_bare[ki,pi], kernal[ki,pi,ni] = Composite_int_yukawa(k, p, n, grid_int, bdlr.β)
+                    @assert isfinite(kernal[ki,pi,ni]) "fail kernal at $ki,$pi,$ni, with $(kernal[ki,pi,ni])"
+                else
+                    kernal_bare[ki,pi] = 0
+                    kernal[ki,pi,ni] = 0
+                end
+            end
+        end
+    end
+    
+    return kernal_bare,  kernal
+end
+
 function legendre_dc_2D(nfermi_grid, kgrid, qgrids, kpanel_bose, int_order)
     kernal_bare = zeros(Float64, (length(kgrid.grid), length(qgrids[1].grid)))
     kernal = zeros(Float64, (length(kgrid.grid), length(qgrids[1].grid), length(nfermi_grid), length(nfermi_grid) ))
@@ -176,6 +197,37 @@ function Composite_int(k, p, n, grid_int, β=β)
         #sum += q*Pl(legendre_x, channel)*FT_RPA(q, n) * wq
         #sum += q*Pl(legendre_x, channel)*dH1_bose(q, n) * wq
         sum_bare += Pl(legendre_x, channel)*4*π*g/q * wq
+    end
+    return sum_bare, sum
+end
+
+function Composite_int_yukawa(k, p, n, grid_int, β=β)
+    sum = 0
+    sum_bare = 0
+    g = e0^2
+
+    if interaction_type==:rpa
+        W_DYNAMIC=RPA_yukawa
+        W_DYNAMIC_MASS=RPA_mass
+    elseif interaction_type==:ko
+        W_DYNAMIC=KO
+        W_DYNAMIC_MASS=KO_mass
+    end
+
+    for (qi, q) in enumerate(grid_int.grid)
+        legendre_x = (k^2 + p^2 - q^2)/2/k/p
+        if(abs(abs(legendre_x)-1)<1e-12)
+            legendre_x = sign(legendre_x)*1
+        end
+        wq = grid_int.wgrid[qi]
+        sum += Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC(q, n) * wq
+        # if(test_KL == true)
+        #     sum += -Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC_MASS(q, n) * wq            
+        # end
+        #sum += Pl(legendre_x, channel)*4*π*g/q*KO(q, n) * wq        
+        #sum += q*Pl(legendre_x, channel)*FT_RPA(q, n) * wq
+        #sum += q*Pl(legendre_x, channel)*dH1_bose(q, n) * wq
+        sum_bare += Pl(legendre_x, channel)*4*π*g*q/(q^2+mass2) * wq
     end
     return sum_bare, sum
 end
@@ -553,6 +605,65 @@ function RPA(q, n, β=β)
             end
             #if( y^2 < 1e-6/EPS)
             Π0 = Π / q^2
+            kernal = - Π0/( 1.0/4/π/g  + Π0 )
+            #else
+            #    kernal = - 2.0/( 3.0*π/4/g*ω_n^2  + 2.0 )
+            #end
+                           
+            #kernal = - Π/( (q^2+mass2)/4/π/g  + Π )
+
+        end
+       
+        #kernal = Π
+    else
+        kernal = 0
+        
+    end
+
+    return kernal
+end
+
+function RPA_yukawa(q, n, β=β)
+    g = e0^2
+    kernal = 0.0
+    Π = 0.0
+    Π_r= 0.0
+    if abs(q) > EPS 
+        x = q/2/kF
+        ω_n = 2*π*n/β
+        y = me*ω_n/q/kF
+        
+        
+        if n == 0
+            if abs(q - 2*kF) > EPS
+                Π = me*kF/2/π^2*(1 + (1 -x^2)*log1p(4*x/((1-x)^2))/4/x)
+            else
+                Π = me*kF/2/π^2
+            end
+            kernal = - Π/( (q^2+mass2)/4/π/g  + Π )                 
+        else
+            if abs(q - 2*kF) > EPS
+               
+                if y^2 < 1e-4/EPS                    
+                    theta = atan( 2*y/(y^2+x^2-1) )
+                    if theta < 0
+                        theta = theta + π
+                    end
+                    @assert theta >= 0 && theta<= π
+                    Π = me*kF/2/π^2 * (1 + (1 -x^2 + y^2)*log1p(4*x/((1-x)^2+y^2))/4/x - y*theta)
+                else
+                    Π = me*kF/2/π^2 * (2.0/3.0/y^2  - 2.0/5.0/y^4) #+ (6.0 - 14.0*(ω_n/4.0)^2)/21.0/y^6)
+                end
+            else
+                theta = atan( 2/y )
+                if theta < 0
+                    theta = theta + π
+                end
+                @assert theta >= 0 && theta<= π
+                Π = me*kF/2/π^2*(1 + y^2*log1p(4/(y^2))/4 - y*theta)
+            end
+            #if( y^2 < 1e-6/EPS)
+            Π0 = Π / (q^2+mass2)
             kernal = - Π0/( 1.0/4/π/g  + Π0 )
             #else
             #    kernal = - 2.0/( 3.0*π/4/g*ω_n^2  + 2.0 )
