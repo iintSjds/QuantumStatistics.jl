@@ -27,8 +27,8 @@ function inf_sum(q,n)
     for i in 1:n
         sum = sum+a/j/k
         a=a*q*q
-        j=j*(i+2.0)
-        k=k*(i+3.0)
+        j=j*(i+1.0)
+        k=k*(i+2.0)
     end
     return 1.0/sum/sum
 end
