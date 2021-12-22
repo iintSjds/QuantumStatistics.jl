@@ -9,7 +9,7 @@ plt.style.use(['science','grid'])
 
 dup=1
 size0=dup*16
-size=4*size0
+size=1*size0
 print(size)
 beta0=400
 beta=400
@@ -26,8 +26,8 @@ betas = np.zeros(size0)
 lamus = np.zeros((size // size0, size0))
 lamuserr = np.zeros((size // size0, size0))
 
-if(len(sys.argv)==2):
-    label=int(sys.argv[1])
+#if(len(sys.argv)==2):
+#    label=int(sys.argv[1])
 for k in range(1,size+1):
     beta = beta * np.sqrt(2)
     #if(k%dup==1):
@@ -57,9 +57,9 @@ print(ll)
 print(betas)
 print(lamus)
 
-lamus = lamus[:, :-2]
-lamuserr = lamuserr[:, :-2]
-lnbetas = np.log10(betas)[:-2]
+lamus = lamus[:, :-1]
+lamuserr = lamuserr[:, :-1]
+lnbetas = np.log10(betas)[:-1]
 errs = np.zeros(size // size0)
 errs2 = np.zeros(size // size0)
 mu = np.zeros(size // size0)
@@ -71,7 +71,7 @@ def fit(x,b,k):
 plt.figure()
 colors = ["r","g","b","c","m","y","k"]
 #for nl in range(len(ll)):
-for nl in [0,1,2,3]:
+for nl in [0]:
     lamul = lamus[nl, :]
     lamulerr = lamuserr[nl, :]
     print(lamul)

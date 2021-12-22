@@ -296,7 +296,7 @@ function main_G0W0(EUV,istest=false)
     println(typeof(kernal))
 
     Σ0, Σ = calcΣ(kernal, kernal_bare, fdlr, kgrid, qgrids)
-
+    println(Σ0)
     Σ_freq = DLR.tau2matfreq(:fermi, Σ, fdlr, adlr.n, axis=2)
     # for (ki, k) in enumerate(kgrid.grid)
     #     ω = k^2 / (2me) - EF

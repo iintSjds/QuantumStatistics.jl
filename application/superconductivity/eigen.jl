@@ -699,8 +699,8 @@ function phonon(q,n)
     α = eph
     β_freq = ω_D^2/kF^2
     γ = 1/kF^2
-    ω_q = β_freq*q^2/(1 + γ*q^2)
-    kernal =  - α/(1 + (q/kF)^2) * ω_q^2/(ω^2 + ω_q^2)
+    ω_q2 = β_freq*q^2/(1 + γ*q^2)
+    kernal =  - α/(1 + (q/kF)^2) * ω_q2/(ω^2 + ω_q2)
     #kernal = -α*ω_D^2/(ω^2+ω_D^2) 
     return kernal
 end
