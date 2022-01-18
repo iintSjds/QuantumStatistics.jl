@@ -1,4 +1,5 @@
-using QuantumStatistics: Grid
+#using QuantumStatistics: Grid
+using CompositeGrids
 using StaticArrays
 
 #

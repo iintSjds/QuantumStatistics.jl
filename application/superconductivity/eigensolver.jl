@@ -3,7 +3,7 @@
     """
 #module eigensolver
 #using QuantumStatistics
-using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint #, DLR, Spectral
+#using QuantumStatistics: σx, σy, σz, σ0, Grid,FastMath, Utility, TwoPoint #, DLR, Spectral
 using Lehmann
 using LinearAlgebra
 using DelimitedFiles
@@ -77,8 +77,8 @@ function dlr_dot_kernal(ωn,ωm)
 end
 
 function dlr_dot(Δ,Δ_new,kgrid,qgrids, fdlr)
-    coeff = DLR.tau2dlr(:acorr, Δ, fdlr, axis=2)
-    coeff_new = DLR.tau2dlr(:acorr, Δ_new, fdlr, axis=2)
+    coeff = tau2dlr(fdlr, Δ, axis=2)
+    coeff_new = tau2dlr(fdlr, Δ_new, axis=2)
     result = zeros(Float64, length(Δ[:,1]))
     for i in 1:length(result)
         for (ωni,ωn) in enumerate(fdlr.ω)
@@ -225,8 +225,8 @@ function Separation(delta0, delta, k::CompositeGrid,  fdlr)
     # end
     # coeff_low = coeff .* low
     # coeff_high = coeff .* high
-    # delta_low =  DLR.dlr2matfreq(:acorr, coeff_low, fdlr, fdlr.n, axis=1)
-    # delta_high = DLR.dlr2matfreq(:acorr, coeff_high, fdlr, fdlr.n, axis=1)
+    # delta_low =  dlr2matfreq(fdlr, coeff_low, fdlr.n, axis=1)
+    # delta_high = dlr2matfreq(fdlr, coeff_high, fdlr.n, axis=1)
 
     # delta0_dum = zeros(ComplexF64, (fdlr.size, length(mom_grid)))
     # for j in 1:length(mom_grid)
@@ -236,12 +236,12 @@ function Separation(delta0, delta, k::CompositeGrid,  fdlr)
     # end
 
 
-    # coeff = DLR.matfreq2dlr(:acorr, delta0_dum, fdlr, axis=1)
+    # coeff = matfreq2dlr(fdlr, delta0_dum, axis=1)
     # println("coeff=",coeff[:,1])
     # coeff_low = coeff .* low
     # coeff_high = coeff .* high
-    # delta_low = delta_low .+ DLR.dlr2matfreq(:acorr, coeff_low, fdlr, fdlr.n, axis=1)
-    # delta_high = delta_high .+ DLR.dlr2matfreq(:acorr, coeff_high, fdlr, fdlr.n, axis=1)
+    # delta_low = delta_low .+ dlr2matfreq(fdlr, coeff_low, fdlr.n, axis=1)
+    # delta_high = delta_high .+ dlr2matfreq(fdlr, coeff_high, fdlr.n, axis=1)
     
     return delta_0_low, delta_0_high, delta_low, delta_high
 end
@@ -261,7 +261,7 @@ function Separation_F(F_in,  k::CompositeGrid,  fdlr)
     # end
     F=F_in
     
-    coeff = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
+    coeff = tau2dlr(fdlr, F, axis=2)
     #println(coeff[1:10,20])
     low=zeros(Float64, ( k.Np * k.order, fdlr.size))
     high=zeros(Float64, ( k.Np * k.order, fdlr.size))
@@ -279,8 +279,8 @@ function Separation_F(F_in,  k::CompositeGrid,  fdlr)
     end
     coeff_low = coeff .* low
     coeff_high = coeff .* high
-    F_low =  DLR.dlr2tau(:acorr, coeff_low, fdlr, fdlr.τ, axis=2)
-    F_high = DLR.dlr2tau(:acorr, coeff_high, fdlr, fdlr.τ, axis=2)
+    F_low =  dlr2tau(fdlr, coeff_low, fdlr.τ, axis=2)
+    F_high = dlr2tau(fdlr, coeff_high, fdlr.τ, axis=2)
 
     return real.(F_low), real.(F_high)
 end
@@ -610,10 +610,10 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            delta[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+            delta[ki, ni] =  Spectral.kernelΩ(true,:none,nn, ω, β) * Spectral.kernelΩ(true, :none, np, ω, β)
         end
     end
-    delta = real(DLR.matfreq2tau(:acorr, delta, fdlr, fdlr.τ, axis=2))
+    delta = real(matfreq2tau(fdlr, delta, fdlr.τ, axis=2))
     delta_0 = zeros(Float64, length(kgrid.grid)) .+ 0.5
     delta_0_new=zeros(Float64, length(kgrid.grid))
     delta_new=zeros(Float64, (length(kgrid.grid), fdlr.size))
@@ -635,7 +635,7 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
 
     #     end
     # end
-    # Δ_2 = real(DLR.matfreq2tau(:acorr, Δ_2, fdlr2, fdlr2.τ, axis=2))
+    # Δ_2 = real(matfreq2tau(fdlr2, Δ_2, fdlr2, fdlr2.τ, axis=2))
 
     # for (ki, k) in enumerate(kgrid.grid)
     #     ω = k^2 / (2me) - EF
@@ -693,7 +693,7 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
         
         #display(pic)
         #readline()
-        delta_freq = real(DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2))
+        delta_freq = real(tau2matfreq(fdlr, delta_new, fdlr.n, axis=2))
         #p = plot(fdlr.n[:], delta_freq[kF_label,:]) #, xlim=(xMin,xMax), ylim=(yMin, yMax))
         #p = plot(kgrid.grid, delta_freq[:,1]) #, xlim=(xMin,xMax), ylim=(yMin, yMax))
         
@@ -892,10 +892,10 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            delta[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+            delta[ki, ni] =  Spectral.kernelΩ(true, :none, nn, ω, β) * Spectral.kernelΩ(true, :none, np, ω, β)
         end
     end
-    delta = real(DLR.matfreq2tau(:acorr, delta, fdlr, fdlr.τ, axis=2))
+    delta = real(matfreq2tau(fdlr, delta, fdlr.τ, axis=2))
     delta_0 = zeros(Float64, length(kgrid.grid)) #.+ 1.0
     delta_0_new=zeros(Float64, length(kgrid.grid))
     delta_new=zeros(Float64, (length(kgrid.grid), fdlr.size))
@@ -913,11 +913,11 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            Δ_2[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+            Δ_2[ki, ni] =  Spectral.kernelΩ(true, :none, nn, ω, β) * Spectral.kernelΩ(true, :none, np, ω, β)
 
         end
     end
-    Δ_2 = real(DLR.matfreq2tau(:acorr, Δ_2, fdlr2, fdlr2.τ, axis=2))
+    Δ_2 = real(matfreq2tau(fdlr2, Δ_2, fdlr2.τ, axis=2))
 
     for (ki, k) in enumerate(kgrid.grid)
         ω = k^2 / (2me) - EF
@@ -925,12 +925,12 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            Δ_2_int[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+            Δ_2_int[ki, ni] =  Spectral.kernelΩ(true, :none, nn, ω, β) * Spectral.kernelΩ(true, :none, np, ω, β)
         end
     end
-    Δ_2_int = real(DLR.matfreq2tau(:acorr, Δ_2_int, fdlr, fdlr.τ, axis=2))
-    Δ_init = DLR.tau2dlr(:acorr, Δ_2, fdlr2, axis=2)
-    Δ_init = DLR.dlr2tau(:acorr, Δ_init, fdlr2, [1.0e-12, β-1.0e-12] , axis=2)
+    Δ_2_int = real(matfreq2tau(fdlr, Δ_2_int, fdlr.τ, axis=2))
+    Δ_init = tau2dlr(fdlr2, Δ_2, axis=2)
+    Δ_init = dlr2tau(fdlr2, Δ_init, [1.0e-12, β-1.0e-12] , axis=2)
 
     # println("Δ_init=$(Δ_init[1,:] )")
     #Separate Delta
@@ -962,8 +962,8 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
         
         F_2 = calcF(Δ0_2, Δ_2, fdlr2, kgrid)
 
-        F_2_int = DLR.tau2dlr(:acorr, F_2, fdlr2, axis=2)
-        F = DLR.dlr2tau(:acorr, F_2_int, fdlr2, fdlr.τ , axis=2)
+        F_2_int = tau2dlr(fdlr2, F_2, axis=2)
+        F = dlr2tau(fdlr2, F_2_int, fdlr.τ , axis=2)
 
 
         # test dlr err
@@ -977,10 +977,10 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
         
         Δ0_2_new, Δ_2_new = calcΔ(F_2, kernal2,kernal_bare, fdlr2 ,kgrid, qgrids)./(-4*π*π)
 
-        Δ_freq = DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2)
-        Δ_freq_2 = DLR.tau2matfreq(:acorr, Δ_2_new, fdlr2, fdlr.n, axis=2)
-        Δ_2_int = DLR.tau2dlr(:acorr, Δ_2_new, fdlr2, axis=2)
-        Δ_2_int = DLR.dlr2tau(:acorr, Δ_2_int, fdlr2, fdlr.τ , axis=2)
+        Δ_freq = tau2matfreq(fdlr, delta_new, fdlr.n, axis=2)
+        Δ_freq_2 = tau2matfreq(fdlr2, Δ_2_new, fdlr.n, axis=2)
+        Δ_2_int = tau2dlr(fdlr2, Δ_2_new, axis=2)
+        Δ_2_int = dlr2tau(fdlr2, Δ_2_int, fdlr.τ , axis=2)
         err0 = maximum(abs.(Δ0_2_new-delta_0_new))
         err = maximum(abs.(Δ_2_int-delta_new))
         err_freq = maximum(abs.(Δ_freq_2-Δ_freq))
@@ -1108,10 +1108,10 @@ function test_Lehmann(delta_0, delta,L_delta_0, L_delta)
         F=calcF(delta_0, delta, fdlr, kgrid)
         L_F = L_calcF(L_delta_0, L_delta, L_fdlr, kgrid)
 
-        F_freq =  real.(DLR.tau2matfreq(:acorr, F, fdlr, fdlr.n, axis=2))
-        L_F_freq =  real.(Lehmann.DLR.tau2matfreq(:acorr, L_F, L_fdlr, fdlr.n, axis=2))
-        L_F_test = Lehmann.DLR.tau2dlr(:acorr, L_F, L_fdlr, axis=2)
-        L_F_test = Lehmann.DLR.dlr2tau(:acorr, L_F_test, L_fdlr, L_fdlr.τ,axis=2)
+        F_freq =  real.(tau2matfreq(fdlr, F, fdlr.n, axis=2))
+        L_F_freq =  real.(tau2matfreq(L_fdlr, L_F, fdlr.n, axis=2))
+        L_F_test = tau2dlr(L_fdlr, L_F, axis=2)
+        L_F_test = dlr2tau(L_fdlr, L_F_test, L_fdlr.τ,axis=2)
         println(maximum(abs.(F_freq-L_F_freq)))
         println(maximum(abs.(L_F-L_F_test)))
         #pic = plot(fdlr.τ, F[kF_label,:]) 
@@ -1128,14 +1128,14 @@ function test_Lehmann(delta_0, delta,L_delta_0, L_delta)
         L_delta_0_new, L_delta_new =  L_calcΔ(L_F, L_kernal, L_kernal_bare, L_fdlr , kgrid, qgrids)./(-4*π*π)
 
         
-        d_freq =  real.(DLR.tau2matfreq(:acorr, delta_new, fdlr, fdlr.n, axis=2))
-        L_d_freq =  real.(Lehmann.DLR.tau2matfreq(:acorr, L_delta_new, L_fdlr, fdlr.n, axis=2))
+        d_freq =  real.(tau2matfreq(fdlr, delta_new, fdlr.n, axis=2))
+        L_d_freq =  real.(tau2matfreq(L_fdlr, L_delta_new, fdlr.n, axis=2))
         ind=findmax(abs.(d_freq-L_d_freq))[2]
         println("max gg err:$(maximum(abs.(d_freq-L_d_freq))), $(kgrid.grid[ind[1]]), $(fdlr.n[ind[2]])")
-        coeff_F = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
-        coeff_LF = Lehmann.DLR.tau2dlr(:acorr, L_F, L_fdlr, axis=2)
-        coeff_D = DLR.tau2dlr(:acorr, delta_new, fdlr, axis=2)
-        coeff_LD = Lehmann.DLR.tau2dlr(:acorr, L_delta_new, L_fdlr, axis=2)
+        coeff_F = tau2dlr(fdlr, F, axis=2)
+        coeff_LF = tau2dlr(L_fdlr, L_F, axis=2)
+        coeff_D = tau2dlr(fdlr, delta_new, axis=2)
+        coeff_LD = tau2dlr(L_fdlr, L_delta_new, axis=2)
         
         println("Fdlr coeff: old $(maximum(abs.(coeff_F))), new $(maximum(abs.(coeff_LF)))")
         println("Ddlr coeff: old $(maximum(abs.(coeff_D))), new $(maximum(abs.(coeff_LD)))")
@@ -1183,12 +1183,12 @@ if abspath(PROGRAM_FILE) == @__FILE__
         @printf(f, "%.6e\t%.6f\t%.6e\t%d\n", β, rs, mom_sep, channel)
         close(f)
     end    
-    fdlr = DLR.DLRGrid(:acorr, fEUV, β, 1e-10)
+    fdlr = DLRGrid(fEUV, β, 1e-10, true, :pha)
     #        fdlr = DLR.DLRGrid(:acorr, 1000EF, β, 1e-10)
     #L_fdlr = Lehmann.DLR.DLRGrid(:acorr, 10EF, β, 1e-10)
     println(fdlr.τ)
-    fdlr2 = DLR.DLRGrid(:acorr, 100EF, β, 1e-10)
-    bdlr = DLR.DLRGrid(:corr, bEUV, β, 1e-10)
+    fdlr2 = DLRGrid(100EF, β, 1e-10, true, :pha)
+    bdlr = DLRGrid(bEUV, β, 1e-10, false, :ph)
     #L_bdlr = Lehmann.DLR.DLRGrid(:corr, 100EF, β, 1e-10)
     ########## non-uniform kgrid #############
     # Nk = 16
@@ -1224,7 +1224,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     #@assert 1==2 "end program"
     #L_kernal_bare, L_kernal_freq = legendre_dc(L_bdlr, kgrid, qgrids, kpanel_bose, order_int)
     #kernal_bare, kernal_freq = dH1_freq(kgrid, qgrids, bdlr, fdlr)
-    kernal = real(DLR.matfreq2tau(:corr, kernal_freq, bdlr, fdlr.τ, axis=3))
+    kernal = real(matfreq2tau(bdlr, kernal_freq, fdlr.τ, axis=3))
     #L_kernal = real(Lehmann.DLR.matfreq2tau(:corr, L_kernal_freq, L_bdlr, L_fdlr.τ, axis=3))
     #L_kernal_test = real(DLR.matfreq2tau(:corr, kernal_freq, bdlr, L_fdlr.τ, axis=3))
     #L_kernal_test = Lehmann.DLR.matfreq2dlr(:corr, L_kernal_freq, L_bdlr, axis=3)        
@@ -1294,7 +1294,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     const ω_label = searchsortedfirst(fdlr.ωn, 2*ω_D)
     println(delta_0)
     println(sum(kernal_bare))
-    Δ_freq= real(DLR.tau2matfreq(:acorr, delta, fdlr, fdlr.n, axis=2))
+    Δ_freq= real(tau2matfreq(fdlr, delta, fdlr.n, axis=2))
     pic=plot(fdlr.ωn[1:ω_label], Δ_freq[3,1:ω_label]/kgrid.grid[3])
     plot!(pic,fdlr.ωn[1:ω_label], Δ_freq[kF_label,1:ω_label]/kgrid.grid[kF_label])
     plot!(pic,fdlr.ωn[1:ω_label], Δ_freq[end,1:ω_label]/kgrid.grid[end])    
@@ -1340,8 +1340,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     
     #Δ0_final, Δ_final = Explicit_Solver_inherit( kgrid, qgrids, fdlr, fdlr2, bdlr)
     if method_type == :implicit
-        Δ_freq_low = DLR.tau2matfreq(:acorr, Δ_final_low, fdlr, fdlr.n, axis=2)
-        Δ_freq_high = DLR.tau2matfreq(:acorr, Δ_final_high, fdlr, fdlr.n, axis=2)
+        Δ_freq_low = tau2matfreq(fdlr, Δ_final_low, fdlr.n, axis=2)
+        Δ_freq_high = tau2matfreq(fdlr, Δ_final_high, fdlr.n, axis=2)
         Δ_out = zeros(Float64,  fdlr.size)
         for (ni,n) in enumerate(fdlr.n)
             Δ_out[ni] = lamu*(Δ0_final_low[kF_label] + Δ_freq_low[kF_label,ni]) + Δ0_final_high[kF_label] +  Δ_freq_high[kF_label,ni]
@@ -1350,8 +1350,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
         # pic = plot!(fdlr.n[1:20],Δ_out[1:20])
         # display(pic)
         # readline()
-        F_τ = DLR.tau2dlr(:acorr, F, fdlr, axis=2)
-        F_τ = real.(DLR.dlr2tau(:acorr, F_τ, fdlr, extT_grid.grid , axis=2))
+        F_τ = tau2dlr(fdlr, F, axis=2)
+        F_τ = real.(dlr2tau(fdlr, F_τ, extT_grid.grid , axis=2))
         #F_τ = real(DLR.matfreq2tau(:acorr, F_freq, fdlr, extT_grid.grid, axis=2))
         println("F_τ_max:",maximum(F_τ))
         F_ext = zeros(Float64, (length(extK_grid.grid), length(extT_grid.grid)))

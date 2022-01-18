@@ -6,7 +6,7 @@ function fullMat(α, γ, n, β)
     ω=π*(2n+1)/β
 
     if α==0
-        return Spectral.kernelCorrΩ(0, α, β)*Spectral.kernelAnormalCorrΩ(n, γ, β)/β
+        return Spectral.kernelΩ(Val(false), Val(:ph), 0, α, β)*Spectral.kernelΩ(Val(true), Val(:pha), n, γ, β)/β
     end
     factor = 4*α*γ*(-expm1(-α*β))*(1+ℯ^(-γ*β))
     f_term = 1.0/((α^2-γ^2+ω^2)^2+4*γ^2*ω^2)*(α^2-γ^2+ω^2)/(2γ)/(1+ℯ^(-γ*β))*(-expm1(-γ*β))
@@ -18,7 +18,7 @@ end
 function sumMat(α, γ, n, β, n_c)
     result = 0.0
     for m in -n_c-1:n_c
-        result += Spectral.kernelAnormalCorrΩ(m, γ, β)*Spectral.kernelCorrΩ(n-m, α, β)
+        result += Spectral.kernelΩ(Val(true),Val(:pha) ,m, γ, β)*Spectral.kernelΩ(Val(false), Val(:ph), n-m, α, β)
     end
 
     return result/β
@@ -27,8 +27,8 @@ end
 
 
 struct ConvMat
-    bdlr::DLR.DLRGrid
-    fdlr::DLR.DLRGrid
+    bdlr::DLRGrid
+    fdlr::DLRGrid
 
     n_c::Int
 
@@ -40,7 +40,7 @@ struct ConvMat
     asw_low::Array{Float64, 1}
     asw_high::Array{Float64, 1}
 
-    function ConvMat(bdlr::DLR.DLRGrid, fdlr::DLR.DLRGrid, n_c::Int)
+    function ConvMat(bdlr::DLRGrid, fdlr::DLRGrid, n_c::Int)
         sep_mat = zeros(Float64, (fdlr.size, bdlr.size, fdlr.size))
         full_mat = zeros(Float64, (fdlr.size, bdlr.size, fdlr.size))
         β = fdlr.β
@@ -49,7 +49,7 @@ struct ConvMat
             for (ωi, ω) in enumerate(bdlr.ω)
                 for (ξi, ξ) in enumerate(fdlr.ω)
                     # for m in 1:n_c
-                    #     sep_mat[ni, ωi, ξi] += Spectral.kernelAnormalCorrΩ(m, ξ, β)*Spectral.kernelCorrΩ(n-m, ω, β)
+                    #     sep_mat[ni, ωi, ξi] += Spectral.kernelΩ(Val(true), Val(:pha), m, ξ, β)*Spectral.kernelΩ(Val(false), Val(:ph),n-m, ω, β)
                     # end
                     sep_mat[ni, ωi, ξi] = sumMat(ω, ξ, n, β, n_c)
                     full_mat[ni, ωi, ξi] = fullMat(ω, ξ, n, β)
@@ -63,7 +63,7 @@ struct ConvMat
         asw_high = zeros(Float64, fdlr.size)
         for (ξi, ξ) in enumerate(fdlr.ω)
             for m in -n_c-1:n_c
-                asw_low[ξi] += Spectral.kernelAnormalCorrΩ(m, ξ, β)/β
+                asw_low[ξi] += Spectral.kernelΩ(Val(true), Val(:pha), m, ξ, β)/β
             end
             asw_full[ξi] = (1+exp(-ξ*β))*tanh(ξ*β/2.0)
         end
@@ -87,8 +87,8 @@ function freq_conv(Γ::Vector, F::Vector, CM::ConvMat, type=:full)
 
     Δ = zeros(ComplexF64, CM.fdlr.size)
 
-    γ = DLR.matfreq2dlr(:corr, Γ, CM.bdlr)
-    f = DLR.matfreq2dlr(:acorr, F, CM.fdlr)
+    γ = matfreq2dlr(CM.bdlr, Γ)
+    f = matfreq2dlr(CM.fdlr, F)
 
     # println(CM.fdlr.n)
     # println(CM.bdlr.ω)
@@ -104,28 +104,28 @@ function freq_conv(Γ::Vector, F::Vector, CM::ConvMat, type=:full)
     return real(Δ)
 end
 
-function MultiPole(type, Grid, β, Euv; IsMatFreq=false)
-    poles=[-Euv, -0.2*Euv, 0.0, 0.8*Euv, Euv]
-    # poles=[0.8Euv, 1.0Euv]
-    # poles = [0.0]
-    g = IsMatFreq ? zeros(ComplexF64, length(Grid)) : zeros(Float64, length(Grid))
-    for (τi, τ) in enumerate(Grid)
-        for ω in poles
+# function MultiPole(type, Grid, β, Euv; IsMatFreq=false)
+#     poles=[-Euv, -0.2*Euv, 0.0, 0.8*Euv, Euv]
+#     # poles=[0.8Euv, 1.0Euv]
+#     # poles = [0.0]
+#     g = IsMatFreq ? zeros(ComplexF64, length(Grid)) : zeros(Float64, length(Grid))
+#     for (τi, τ) in enumerate(Grid)
+#         for ω in poles
 
-            if (type==:corr || type==:acorr) && ω<0.0 
-                #spectral density is defined for positivie frequency only for correlation functions
-                continue
-            end
+#             if (type==:corr || type==:acorr) && ω<0.0 
+#                 #spectral density is defined for positivie frequency only for correlation functions
+#                 continue
+#             end
             
-            if IsMatFreq==false
-                g[τi] += Spectral.kernelT(type, τ, ω, β)
-            else
-                g[τi] += Spectral.kernelΩ(type, τ, ω, β)
-            end
-        end
-    end
-    return g, zeros(Float64, length(Grid))
-end
+#             if IsMatFreq==false
+#                 g[τi] += Spectral.kernelT(type, τ, ω, β)
+#             else
+#                 g[τi] += Spectral.kernelΩ(type, τ, ω, β)
+#             end
+#         end
+#     end
+#     return g, zeros(Float64, length(Grid))
+# end
 
 end
 
@@ -152,15 +152,15 @@ if abspath(PROGRAM_FILE) == @__FILE__
         ASW = zeros(Float64, fdlr.size)
         for (ξi, ξ) in enumerate(fdlr.ω)
             for m in 1:n_c
-                ASW[ξi] += FreqConv.Spectral.kernelAnormalCorrΩ(m, ξ, β)
+                ASW[ξi] += FreqConv.Spectral.kernelΩ(Val(true), Val(:pha), m, ξ, β)
             end
         end
 
         return ASW
     end
 
-    fdlr = FreqConv.DLR.DLRGrid(:acorr, fEUV, β, 1e-12)
-    bdlr = FreqConv.DLR.DLRGrid(:corr, bEUV, β, 1e-12)
+    fdlr = FreqConv.DLRGrid(fEUV, β, 1e-12, true, :pha)
+    bdlr = FreqConv.DLRGrid(bEUV, β, 1e-12, false, :ph)
 
     println("α:", bdlr.ω)
     println("γ:", fdlr.ω)
@@ -173,7 +173,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     m = 5
     println("sumMat:", FreqConv.sumMat(α,ξ,n,β,100),"\t",FreqConv.sumMat(α,ξ,n,β,1000),"\t",FreqConv.sumMat(α,ξ,n,β,10000),"\t")
     println("fullMat:",FreqConv.fullMat(α,ξ,n,β))
-    println(FreqConv.Spectral.kernelCorrΩ(n-m, α, β)*FreqConv.Spectral.kernelAnormalCorrΩ(m, ξ, β))
+    println(FreqConv.Spectral.kernelΩ(Val(false), Val(:ph) ,n-m, α, β)*FreqConv.Spectral.kernelΩ(Val(true), Val(:pha), m, ξ, β))
 
 #    @assert 1==2 "break"
 
@@ -189,16 +189,16 @@ if abspath(PROGRAM_FILE) == @__FILE__
     F = (1.0 .- 0.1 .* Phonon(ωf)) ./ ωf
     println(Γ)
     println(F)
-    γ = FreqConv.DLR.matfreq2dlr(:corr, Γ, bdlr)
-    f = FreqConv.DLR.matfreq2dlr(:acorr, F, fdlr)
-    Γt = FreqConv.DLR.dlr2tau(:corr, γ, bdlr, bdlr.τ)
-    Ft = FreqConv.DLR.dlr2tau(:acorr, f, fdlr, fdlr.τ)
+    γ = FreqConv.matfreq2dlr(bdlr, Γ)
+    f = FreqConv.matfreq2dlr(fdlr, F)
+    Γt = FreqConv.dlr2tau(bdlr, γ, bdlr.τ)
+    Ft = FreqConv.dlr2tau(fdlr, f, fdlr.τ)
     # Γt = FreqConv.MultiPole(:corr, bdlr.τ, β, bEUV)[1]
     # Ft = FreqConv.MultiPole(:acorr, fdlr.τ, β, fEUV)[1]
-    # γ = FreqConv.DLR.tau2dlr(:corr, Γt, bdlr)
-    # f = FreqConv.DLR.tau2dlr(:acorr, Ft, fdlr)
-    # Γ = FreqConv.DLR.dlr2matfreq(:corr, γ, bdlr, bdlr.n)
-    # F = FreqConv.DLR.dlr2matfreq(:acorr, f, fdlr, fdlr.n)
+    # γ = FreqConv.tau2dlr(bdlr, Γt)
+    # f = FreqConv.tau2dlr(fdlr, Ft)
+    # Γ = FreqConv.dlr2matfreq(bdlr, γ, bdlr.n)
+    # F = FreqConv.dlr2matfreq(fdlr, f, fdlr.n)
 
 
     Δ = FreqConv.freq_conv(Γ, F, cm, :low)
@@ -212,11 +212,11 @@ if abspath(PROGRAM_FILE) == @__FILE__
     # F_v = zeros(Float64, n_c+1)
 
     for (ni, n) in enumerate(fdlr.n)
-        Γ_mat[ni, :] = FreqConv.DLR.dlr2matfreq(:corr, γ, bdlr, [n-m for m in -n_c-1:n_c])
-        #Γ_mat[ni, :] = FreqConv.DLR.dlr2matfreq(:corr, γ, bdlr, [n-m for m in 0:n_c])
+        Γ_mat[ni, :] = FreqConv.dlr2matfreq(bdlr, γ, [n-m for m in -n_c-1:n_c])
+        #Γ_mat[ni, :] = FreqConv.dlr2matfreq(bdlr, γ, [n-m for m in 0:n_c])
     end
-    F_v = FreqConv.DLR.dlr2matfreq(:acorr, f, fdlr, [m for m in -n_c-1:n_c])
-    #F_v = FreqConv.DLR.dlr2matfreq(:acorr, f, fdlr, [m for m in 0:n_c])
+    F_v = FreqConv.dlr2matfreq(fdlr, f, [m for m in -n_c-1:n_c])
+    #F_v = FreqConv.dlr2matfreq(fdlr, f, [m for m in 0:n_c])
 
     println(Γ_mat[1, :])
     println(F_v)
@@ -235,12 +235,12 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     Δ = FreqConv.freq_conv(Γ, F, cm, :full)
     println(Δ)
-    Γft = FreqConv.DLR.dlr2tau(:corr, γ, bdlr, fdlr.τ)
+    Γft = FreqConv.dlr2tau(bdlr, γ, fdlr.τ)
     Δ2t = Γft .* Ft
-    Δ2 = FreqConv.DLR.tau2matfreq(:acorr, Δ2t, fdlr, fdlr.n)
+    Δ2 = FreqConv.tau2matfreq(fdlr, Δ2t, fdlr.n)
     println(real(Δ2))
 
-    F0 = FreqConv.DLR.dlr2tau(:acorr, f, fdlr, [0.0,])[1]
+    F0 = FreqConv.dlr2tau(fdlr, f, [0.0,])[1]
     F1 = 0.0
     F2 = 0.0
     F3 = 0.0
