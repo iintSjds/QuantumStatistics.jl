@@ -9,7 +9,7 @@ using LinearAlgebra
 using DelimitedFiles
 using Printf
 #using Gaston
-using Plots
+#using Plots
 using Statistics
 
 srcdir = "."
@@ -470,7 +470,7 @@ function Implicit_Renorm_Test_Mom(kernal, kernal_bare, kgrid, qgrids, fdlr, kgri
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            delta[ki, ni] =  Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
+            delta[ki, ni] =  Spectral.kernelΩ(Val(true), Val(:none),nn, ω, β) * Spectral.kernelΩ(Val(true), Val(:none),np, ω, β)
         end
     end
 
@@ -610,7 +610,7 @@ function Explicit_Solver(kernal, kernal_bare, Σ, kgrid, qgrids, fdlr, bdlr )
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            delta[ki, ni] =  Spectral.kernelΩ(true,:none,nn, ω, β) * Spectral.kernelΩ(true, :none, np, ω, β)
+            delta[ki, ni] =  Spectral.kernelΩ(Val(true),Val(:none),nn, ω, β) * Spectral.kernelΩ(Val(true), Val(:none), np, ω, β)
         end
     end
     delta = real(matfreq2tau(fdlr, delta, fdlr.τ, axis=2))
@@ -892,7 +892,7 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            delta[ki, ni] =  Spectral.kernelΩ(true, :none, nn, ω, β) * Spectral.kernelΩ(true, :none, np, ω, β)
+            delta[ki, ni] =  Spectral.kernelΩ(Val(true), Val(:none), nn, ω, β) * Spectral.kernelΩ(Val(true), Val(:none), np, ω, β)
         end
     end
     delta = real(matfreq2tau(fdlr, delta, fdlr.τ, axis=2))
@@ -913,7 +913,7 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            Δ_2[ki, ni] =  Spectral.kernelΩ(true, :none, nn, ω, β) * Spectral.kernelΩ(true, :none, np, ω, β)
+            Δ_2[ki, ni] =  Spectral.kernelΩ(Val(true), Val(:none), nn, ω, β) * Spectral.kernelΩ(Val(true), Val(:none), np, ω, β)
 
         end
     end
@@ -925,7 +925,7 @@ function Explicit_Solver_err(kernal, kernal2, kernal_bare, kgrid, qgrids, fdlr, 
             np = n # matsubara freqeuncy index for the upper G: (2np+1)π/β
             nn = -n - 1 # matsubara freqeuncy for the upper G: (2nn+1)π/β = -(2np+1)π/β
             # F[ki, ni] = (Δ[ki, ni] + Δ0[ki]) * Spectral.kernelFermiΩ(nn, ω, β) * Spectral.kernelFermiΩ(np, ω, β)
-            Δ_2_int[ki, ni] =  Spectral.kernelΩ(true, :none, nn, ω, β) * Spectral.kernelΩ(true, :none, np, ω, β)
+            Δ_2_int[ki, ni] =  Spectral.kernelΩ(Val(true), Val(:none), nn, ω, β) * Spectral.kernelΩ(Val(true), Val(:none), np, ω, β)
         end
     end
     Δ_2_int = real(matfreq2tau(fdlr, Δ_2_int, fdlr.τ, axis=2))

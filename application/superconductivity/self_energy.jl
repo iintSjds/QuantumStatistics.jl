@@ -2,7 +2,7 @@ using StaticArrays:similar, maximum
 #using QuantumStatistics: Grid, FastMath, Utility
 using Lehmann
 using Printf
-using Plots
+#using Plots
 using DelimitedFiles
 #using LaTeXStrings
 
@@ -468,6 +468,8 @@ function main_G0W0(EUV,istest=false)
     println(ΣR[kF_label,:].+Σ0[kF_label].-Σ_shift)
     println(ΣI[kF_label,:])
     println(Σ[kF_label,:])
+    Z0 = 1/(1-(ΣI[kF_label,2]-ΣI[kF_label,1])/2/π*β)
+    println("Zfactor:",Z0)
     if istest
         n1, n2 = 31, 30
         println(fdlr.n)
@@ -679,6 +681,8 @@ function main_GW0_sym(istest=false)
 
     println(ΣR[kF_label,:])
     println(ΣI[kF_label,:])
+    Z0 = 1/(1-(ΣI[kF_label,2]-ΣI[kF_label,1])/2/π*β)
+    println("Zfactor:",Z0)
     if istest
         n1, n2 = 31, 30
         println(fdlr.n)
@@ -709,8 +713,11 @@ function main_GW0_sym(istest=false)
             @printf(f, "%32.17g\t%32.17g\n", ΣR[ki,ni], ΣI[ki,ni])
         end
     end
-
-
+    close(f)
+    outFileName = rundir*"/Zfactor_$(WID).dat"
+    f = open(outFileName, "w")
+    @printf(f, "%32.17g\n", Z0)
+    close(f)
 end
 
 # function plot_kernel_freq(EUV,istest=false)
