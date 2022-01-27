@@ -197,7 +197,7 @@ function G_τ_sym(Σ0, ΣR, ΣI, sdlr , adlr, kgrid)
     ΣI_s =  imag(tau2matfreq(adlr, ΣI, sdlr.n, axis=2))
     ΣR_a =  real(tau2matfreq(sdlr, ΣR, adlr.n, axis=2))
     #ΣI_a =  imag(matfreq2matfreq(adlr, im*ΣI, adlr.n, axis=2))
-    ΣI_a =  imag(tau2matfreq(adlr, ΣI, sdlr.n, axis=2))
+    ΣI_a =  imag(tau2matfreq(adlr, ΣI, adlr.n, axis=2))
 
 
     Σ_shift = ΣR_s[kF_label,ω0_label]+real(Σ0)[kF_label]
@@ -503,6 +503,11 @@ function main_G0W0(EUV,istest=false)
             @printf(f, "%32.17g\t%32.17g\n", ΣR[ki,ni]+Σ0[ki]-Σ_shift, ΣI[ki,ni])
         end
     end
+    close(f)
+    outFileName = rundir*"/Zfactor_$(WID).dat"
+    f = open(outFileName, "w")
+    @printf(f, "%32.17g\n", Z0)
+    close(f)
     return Σ_freq
 
 end
@@ -647,7 +652,7 @@ function main_GW0_sym(istest=false)
     Σ0, ΣR, ΣI = calcΣ_sym(GR, GI  , kernal_a, kernal_s, kernal_bare, adlr, sdlr, kgrid, qgrids)
     Σ_shift_old = 0.0
     
-    mix = 0.3
+    mix = 1.0
     for i in 1:1000
         Σ_shift, GR_new, GI_new = G_τ_sym(Σ0, ΣR, ΣI, adlr, sdlr, kgrid)
         GR = mix*GR_new + (1-mix)*GR
