@@ -168,14 +168,14 @@ function Composite_int(k, p, n, grid_int, β=β)
         end
         wq = grid_int.wgrid[qi]
         if if_electron == 1
-            sum += Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC(q, n) * wq
+            sum += Pl(legendre_x, channel)*4*π*g*q/(q^2 + yukawa)*W_DYNAMIC(q, n) * wq
             if(test_KL == true)
-                sum += -Pl(legendre_x, channel)*4*π*g/q*W_DYNAMIC_MASS(q, n) * wq            
+                sum += -Pl(legendre_x, channel)*4*π*g*q/(q^2 + yukawa)*W_DYNAMIC_MASS(q, n) * wq            
             end
             #sum += Pl(legendre_x, channel)*4*π*g/q*KO(q, n) * wq        
             #sum += q*Pl(legendre_x, channel)*FT_RPA(q, n) * wq
             #sum += q*Pl(legendre_x, channel)*dH1_bose(q, n) * wq
-            sum_bare += Pl(legendre_x, channel)*4*π*g/q * wq
+            sum_bare += Pl(legendre_x, channel)*4*π*g*q/(q^2 + yukawa) * wq
         end
         if if_phonon == 1
             sum += Pl(legendre_x, channel)*q*phonon(q, n) * wq
@@ -534,7 +534,7 @@ function RPA(q, n, β=β)
             else
                 Π = me*kF/2/π^2
             end
-            kernal = - Π/( q^2/4/π/g  + Π )                 
+            kernal = - Π/( (q^2 + yukawa)/4/π/g  + Π )                 
         else
             if abs(q - 2*kF) > EPS
                
@@ -558,7 +558,7 @@ function RPA(q, n, β=β)
             end
             #if( y^2 < 1e-6/EPS)
             Π0 = Π / q^2
-            kernal = - Π0/( 1.0/4/π/g  + Π0 )
+            kernal = - Π0/( (1.0 + yukawa/(q^2) )/4/π/g  + Π0 )
             #else
             #    kernal = - 2.0/( 3.0*π/4/g*ω_n^2  + 2.0 )
             #end
